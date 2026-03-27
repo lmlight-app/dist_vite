@@ -7,9 +7,22 @@ INSTALL_DIR="${LMLIGHT_INSTALL_DIR:-$HOME/.local/lmlight-vllm}"
 ARCH="$(uname -m)"
 case "$ARCH" in x86_64|amd64) ARCH="amd64" ;; aarch64|arm64) ARCH="arm64" ;; esac
 
+# Auth header for private repo access
+AUTH_HEADER=""
+[ -n "$GH_TOKEN" ] && AUTH_HEADER="--header \"Authorization: token $GH_TOKEN\""
+CURL_AUTH=""
+[ -n "$GH_TOKEN" ] && CURL_AUTH="-H \"Authorization: token $GH_TOKEN\""
+
+# Script URL: R2 if BASE_URL is R2, otherwise GitHub raw
+if [[ "$BASE_URL" == *"r2.dev"* ]]; then
+  SCRIPT_URL="https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts"
+else
+  SCRIPT_URL="https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts"
+fi
+
 echo " Installing AI Server vLLM Edition ($ARCH) to $INSTALL_DIR"
 
-mkdir -p "$INSTALL_DIR"/{app,logs}
+mkdir -p "$INSTALL_DIR"/logs
 
 [ -f "$INSTALL_DIR/stop.sh" ] && "$INSTALL_DIR/stop.sh" 2>/dev/null || true
 
@@ -19,10 +32,10 @@ echo " Downloading vLLM backend..."
 BINARY_URL="$BASE_URL/lmlight-vllm-linux-$ARCH"
 
 if command -v wget &>/dev/null; then
-  wget --show-progress --timeout=600 --tries=3 "$BINARY_URL" -O "$INSTALL_DIR/api"
+  eval wget --show-progress --timeout=600 --tries=3 $AUTH_HEADER "$BINARY_URL" -O "$INSTALL_DIR/api"
 else
-  curl -fL --connect-timeout 30 --max-time 0 --retry 3 --retry-delay 5 \
-    "$BINARY_URL" -o "$INSTALL_DIR/api"
+  eval curl -fL --connect-timeout 30 --max-time 0 --retry 3 --retry-delay 5 \
+    $CURL_AUTH "$BINARY_URL" -o "$INSTALL_DIR/api"
 fi
 
 if [ ! -f "$INSTALL_DIR/api" ] || [ ! -s "$INSTALL_DIR/api" ]; then
@@ -149,15 +162,9 @@ API_HOST=0.0.0.0
 API_PORT=8000
 
 # =============================================================================
-# Web Frontend Configuration
+# Authentication
 # =============================================================================
-WEB_HOST=0.0.0.0
-WEB_PORT=3000
-
-
-# =============================================================================
-# Authentication: local / ldap / oidc
-# =============================================================================
+JWT_SECRET=$(openssl rand -hex 32)
 AUTH_MODE=local
 
 # LDAP (AUTH_MODE=ldap)
@@ -197,7 +204,7 @@ if [ -f "$INSTALL_DIR/.env" ]; then
     fi
 fi
 echo "Setting up database..."
-curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/scripts/db_setup.sh | bash
+eval curl -fsSL $CURL_AUTH "$SCRIPT_URL/db_setup.sh" | bash
 
 cat > "$INSTALL_DIR/start.sh" << 'EOF'
 #!/bin/bash
@@ -218,27 +225,23 @@ if ! command -v nvidia-smi &>/dev/null; then
 fi
 
 # Stop existing
-pkill -f "lmlight-vllm.*api" 2>/dev/null; pkill -f "node.*server.js" 2>/dev/null; sleep 1
+pkill -f "lmlight-vllm.*api" 2>/dev/null; sleep 1
 
 echo "🚀 Starting AI Server (vLLM Edition)..."
 
-# Start API (vLLM auto-start is handled by the API if VLLM_AUTO_START=true)
+# Single process: API + Web frontend
 ./api &
 API_PID=$!
 
-# Start Web (Next.js standalone requires both HOSTNAME and PORT)
-cd app && HOSTNAME="${WEB_HOST:-0.0.0.0}" PORT="${WEB_PORT:-3000}" # frontend served by API &
-WEB_PID=$!
-
-echo "✅ Started - API: http://localhost:${API_PORT:-8000} | Web: http://localhost:${WEB_PORT:-3000}"
+echo "✅ Started - http://localhost:${API_PORT:-8000}"
 
 # Show LAN IP
 LAN_IP=$(ip -4 addr show 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '127.0.0.1' | head -n1)
-[ -n "$LAN_IP" ] && echo "🌐 LAN: http://$LAN_IP:${WEB_PORT:-3000}"
+[ -n "$LAN_IP" ] && echo "🌐 LAN: http://$LAN_IP:${API_PORT:-8000}"
 
 # Show mDNS hostname if Avahi is running
 if systemctl is-active --quiet avahi-daemon 2>/dev/null; then
-    echo "🌐 mDNS: http://$(hostname).local:${WEB_PORT:-3000}"
+    echo "🌐 mDNS: http://$(hostname).local:${API_PORT:-8000}"
 fi
 
 if [ "${VLLM_AUTO_START:-false}" = "true" ]; then
@@ -252,7 +255,7 @@ fi
 echo ""
 echo "Press Ctrl+C to stop"
 
-trap "kill $API_PID $WEB_PID 2>/dev/null; echo 'Stopped'" EXIT
+trap "kill $API_PID 2>/dev/null; echo 'Stopped'" EXIT
 wait
 EOF
 chmod +x "$INSTALL_DIR/start.sh"
@@ -264,7 +267,6 @@ pkill -f "lmlight-vllm/start\.sh" 2>/dev/null
 sleep 1
 # Clean up any remaining processes
 pkill -f "\./api$" 2>/dev/null
-pkill -f "lmlight-vllm/app.*server\.js" 2>/dev/null
 echo "Stopped"
 EOF
 chmod +x "$INSTALL_DIR/stop.sh"

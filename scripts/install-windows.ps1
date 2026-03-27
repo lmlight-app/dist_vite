@@ -1,10 +1,10 @@
-# AI Server インストーラー for Windows
+# AI Server インストーラー for Windows (Vite Edition)
 # 使い方: irm https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-windows.ps1 | iex
 
 $ErrorActionPreference = "Stop"
 
 # 設定
-$BASE_URL = if ($env:LMLIGHT_BASE_URL) { $env:LMLIGHT_BASE_URL } else { "https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/latest" }
+$BASE_URL = if ($env:LMLIGHT_BASE_URL) { $env:LMLIGHT_BASE_URL } else { "https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-latest" }
 $INSTALL_DIR = if ($env:LMLIGHT_INSTALL_DIR) { $env:LMLIGHT_INSTALL_DIR } else { "$env:LOCALAPPDATA\lmlight" }
 $ARCH = "amd64"  # Windows は x64 のみサポート
 
@@ -46,7 +46,6 @@ if (-not $isAdmin) {
 
 # ディレクトリ作成
 New-Item -ItemType Directory -Force -Path "$INSTALL_DIR" | Out-Null
-New-Item -ItemType Directory -Force -Path "$INSTALL_DIR\app" | Out-Null
 New-Item -ItemType Directory -Force -Path "$INSTALL_DIR\logs" | Out-Null
 
 # 既存インストールチェック
@@ -56,10 +55,6 @@ if (Test-Path "$INSTALL_DIR\api.exe") {
     # 既存プロセス停止
     Write-Info "既存のプロセスを停止中..."
     Get-Process -Name "api" -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "*lmlight*" } | Stop-Process -Force
-    # lmlightフォルダで動作しているnodeのみ停止
-    Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue |
-        Where-Object { $_.CommandLine -like "*lmlight*" } |
-        ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
     Start-Sleep -Seconds 2
     Write-Success "既存のプロセスを停止しました"
 }
@@ -67,48 +62,19 @@ if (Test-Path "$INSTALL_DIR\api.exe") {
 # ============================================================
 # ステップ 1: バイナリダウンロード
 # ============================================================
-Write-Info "ステップ 1/5: バイナリをダウンロード中..."
+Write-Info "ステップ 1/4: バイナリをダウンロード中..."
 
-Write-Info "バックエンドをダウンロード中..."
+Write-Info "バイナリをダウンロード中..."
 $BACKEND_FILE = "lmlight-vite-windows-$ARCH.exe"
 Invoke-WebRequest -Uri "$BASE_URL/$BACKEND_FILE" -OutFile "$INSTALL_DIR\api.exe" -UseBasicParsing
-Write-Success "バックエンドをダウンロードしました"
-
-Write-Info "フロントエンドをダウンロード中..."
-$TEMP_TAR = "$env:TEMP\"
-Invoke-WebRequest -Uri "$BASE_URL/" -OutFile $TEMP_TAR -UseBasicParsing
-
-# tar展開（Windows 10 1803+）
-$WORK_DIR = "$env:TEMP\lmlight-app-$PID"
-New-Item -ItemType Directory -Force -Path $WORK_DIR | Out-Null
-tar -xzf $TEMP_TAR -C $WORK_DIR
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "tar展開に失敗しました (code: $LASTEXITCODE)"
-}
-
-# appディレクトリを置き換え
-if (Test-Path "$INSTALL_DIR\app") {
-    Remove-Item -Recurse -Force "$INSTALL_DIR\app"
-}
-Move-Item -Path $WORK_DIR -Destination "$INSTALL_DIR\app"
-Remove-Item -Force $TEMP_TAR
-
-Write-Success "フロントエンドをダウンロードしました"
+Write-Success "バイナリをダウンロードしました"
 
 # ============================================================
 # ステップ 2: 依存関係チェック
 # ============================================================
-Write-Info "ステップ 2/5: 依存関係をチェック中..."
+Write-Info "ステップ 2/4: 依存関係をチェック中..."
 
 $MISSING_DEPS = @()
-
-# Node.js チェック
-if (Get-Command node -ErrorAction SilentlyContinue) {
-    Write-Success "Node.js: $(node --version)"
-} else {
-    Write-Warn "Node.js が見つかりません"
-    $MISSING_DEPS += "nodejs"
-}
 
 # PostgreSQL チェック
 if (Get-Command psql -ErrorAction SilentlyContinue) {
@@ -141,10 +107,6 @@ if ($MISSING_DEPS.Count -gt 0 -and $isAdmin) {
     if ($response -eq "" -or $response -eq "Y" -or $response -eq "y") {
         foreach ($dep in $MISSING_DEPS) {
             switch ($dep) {
-                "nodejs" {
-                    Write-Info "Node.js をインストール中..."
-                    winget install -e --id OpenJS.NodeJS.LTS --silent --accept-package-agreements --accept-source-agreements
-                }
                 "postgresql" {
                     Write-Info "PostgreSQL をインストール中..."
                     winget install -e --id PostgreSQL.PostgreSQL --silent --accept-package-agreements --accept-source-agreements
@@ -168,7 +130,7 @@ if ($MISSING_DEPS.Count -gt 0 -and $isAdmin) {
 # ============================================================
 # ステップ 3: PostgreSQL セットアップ
 # ============================================================
-Write-Info "ステップ 3/5: PostgreSQL をセットアップ中..."
+Write-Info "ステップ 3/4: PostgreSQL をセットアップ中..."
 
 # PostgreSQL ポート検出
 $DB_PORT = "5432"
@@ -508,7 +470,7 @@ GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA pgvector TO $DB_USER;
 # ============================================================
 # ステップ 4: Ollama セットアップ
 # ============================================================
-Write-Info "ステップ 4/5: Ollama をセットアップ中..."
+Write-Info "ステップ 4/4: Ollama をセットアップ中..."
 
 if (Get-Command ollama -ErrorAction SilentlyContinue) {
     # Ollama が起動していない場合は起動
@@ -535,19 +497,16 @@ OLLAMA_BASE_URL=http://localhost:11434
 # OLLAMA_NUM_PARALLEL=8
 LICENSE_FILE_PATH=$INSTALL_DIR\license.lic
 
-# Network Configuration
+# Server Configuration (API + Web on single port)
 API_HOST=0.0.0.0
 API_PORT=8000
-WEB_HOST=0.0.0.0
-WEB_PORT=3000
+
+# Authentication
+JWT_SECRET=$(-join ((48..57) + (97..122) | Get-Random -Count 64 | ForEach-Object { [char]`$_ }))
+AUTH_MODE=local
 
 # Whisper Transcription
-# Install model first: install-transcribe.ps1 [tiny|base|small|medium|large]
-# With GPU (pip install openai-whisper torch), GPU is auto-detected
 # WHISPER_MODEL=tiny
-
-# Authentication: local / ldap / oidc
-AUTH_MODE=local
 
 # LDAP (AUTH_MODE=ldap)
 # LDAP_HOST=your-ad-server.company.local
@@ -583,9 +542,6 @@ if (Test-Path "$INSTALL_DIR\.env") {
         }
     }
 }
-
-# Auth.js v5 対応
-$env:AUTH_TRUST_HOST = "true"
 
 # Tesseract OCR (画像OCR用)
 if (Test-Path "C:\Program Files\Tesseract-OCR\tesseract.exe") {
@@ -625,36 +581,27 @@ if (-not (Get-Process -Name "ollama" -ErrorAction SilentlyContinue)) {
 
 # 既存プロセス終了
 Get-Process -Name "api" -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "*lmlight*" } | Stop-Process -Force
-Get-Process -Name "node" -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "*lmlight*" } | Stop-Process -Force
 Start-Sleep -Seconds 1
 
-# API 起動
+if (-not $env:API_PORT) { $env:API_PORT = "8000" }
+
+# API 起動 (single process: API + Web frontend)
 Write-Host "API を起動中..."
 $apiProcess = Start-Process -FilePath "$INSTALL_DIR\api.exe" -WorkingDirectory $INSTALL_DIR -NoNewWindow -PassThru
 Start-Sleep -Seconds 3
 
-# Web 起動 (.env から読み取った環境変数を使用)
-if (-not $env:WEB_HOST) { $env:WEB_HOST = "0.0.0.0" }
-if (-not $env:WEB_PORT) { $env:WEB_PORT = "3000" }
-if (-not $env:API_PORT) { $env:API_PORT = "8000" }
-$env:PORT = $env:WEB_PORT
-$env:HOSTNAME = $env:WEB_HOST
-Write-Host "Web を起動中..."
-$appProcess = Start-Process -FilePath "node" -ArgumentList "server.js" -WorkingDirectory "$INSTALL_DIR\app" -NoNewWindow -PassThru
-
 Write-Host ""
 Write-Host "AI Server が起動しました！" -ForegroundColor Green
 Write-Host ""
-Write-Host "  Web UI: http://localhost:$($env:WEB_PORT)"
-Write-Host "  API:    http://localhost:$($env:API_PORT)"
+Write-Host "  http://localhost:$($env:API_PORT)" -ForegroundColor Cyan
 
 # LAN IP 表示
 $lanIp = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -ne "127.0.0.1" -and $_.PrefixOrigin -ne "WellKnown" } | Select-Object -First 1).IPAddress
-if ($lanIp) { Write-Host "  LAN:  http://${lanIp}:$($env:WEB_PORT)" -ForegroundColor Cyan }
+if ($lanIp) { Write-Host "  LAN:  http://${lanIp}:$($env:API_PORT)" -ForegroundColor Cyan }
 
 # mDNS hostname 表示 (Windows 10 1709+)
 $mdnsName = "$([System.Net.Dns]::GetHostName()).local"
-Write-Host "  mDNS: http://${mdnsName}:$($env:WEB_PORT)" -ForegroundColor Cyan
+Write-Host "  mDNS: http://${mdnsName}:$($env:API_PORT)" -ForegroundColor Cyan
 
 Write-Host ""
 Write-Host "  Ctrl+C で停止" -ForegroundColor Yellow
@@ -663,7 +610,6 @@ Write-Host ""
 # Ctrl+C ハンドラー
 $null = Register-EngineEvent -SourceIdentifier PowerShell.Exiting -Action {
     Stop-Process -Id $apiProcess.Id -Force -ErrorAction SilentlyContinue
-    Stop-Process -Id $appProcess.Id -Force -ErrorAction SilentlyContinue
 }
 
 try {
@@ -684,7 +630,6 @@ $STOP_SCRIPT = @'
 Write-Host "AI Server を停止中..."
 
 Get-Process -Name "api" -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "*lmlight*" } | Stop-Process -Force
-Get-Process -Name "node" -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "*lmlight*" } | Stop-Process -Force
 
 Write-Host "AI Server を停止しました" -ForegroundColor Green
 '@
@@ -701,11 +646,9 @@ Set-Location $INSTALL_DIR
 
 # .env 読み込み
 $API_PORT = 8000
-$WEB_PORT = 3000
 if (Test-Path "$INSTALL_DIR\.env") {
     Get-Content "$INSTALL_DIR\.env" | ForEach-Object {
         if ($_ -match "^API_PORT=(.*)$") { $API_PORT = $matches[1] }
-        if ($_ -match "^WEB_PORT=(.*)$") { $WEB_PORT = $matches[1] }
     }
 }
 
@@ -744,7 +687,7 @@ if ($isRunning) {
 
     if ($ready) {
         Start-Sleep -Seconds 1
-        Start-Process "http://localhost:$WEB_PORT"
+        Start-Process "http://localhost:$API_PORT"
 
         # トースト通知
         [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
@@ -803,7 +746,7 @@ Write-Host "  または" -ForegroundColor Gray
 Write-Host "起動: powershell -ExecutionPolicy Bypass -File `"$INSTALL_DIR\start.ps1`"" -ForegroundColor Blue
 Write-Host "停止: powershell -ExecutionPolicy Bypass -File `"$INSTALL_DIR\stop.ps1`"" -ForegroundColor Blue
 Write-Host ""
-Write-Host "Web UI:   http://localhost:3000" -ForegroundColor Blue
+Write-Host "URL:      http://localhost:8000" -ForegroundColor Blue
 Write-Host ""
 Write-Host "============================================================"
 Write-Host "  ライセンス設定"

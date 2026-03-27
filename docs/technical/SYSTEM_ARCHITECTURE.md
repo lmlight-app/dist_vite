@@ -16,7 +16,7 @@ graph TB
         User["ユーザー<br/>ブラウザ"]
 
         subgraph "LM Light"
-            Web["Web UI<br/>Next.js 15<br/>:3000"]
+            Web["Web UI<br/>Vite + React<br/>:8000"]
             API["API Server<br/>FastAPI (Python)<br/>:8000"]
             DB["PostgreSQL 17<br/>+ pgvector<br/>:5432"]
         end
@@ -58,9 +58,9 @@ graph TB
 
 | 項目 | 内容 |
 |------|------|
-| フレームワーク | Next.js 15 + React 19 |
-| ORM | Prisma 7 + @prisma/adapter-pg |
-| 認証 | NextAuth v5 (next-auth 5.0) |
+| フレームワーク | Vite + React 19 |
+| ORM | SQLAlchemy 2.0 |
+| 認証 | JWT認証 v5 (next-auth 5.0) |
 | LDAP | ldapts |
 | パスワード | bcryptjs (12ラウンド) |
 | ポート | 3000 |
@@ -208,7 +208,7 @@ graph LR
 
 ```
 1台のサーバー
-├── Web UI (:3000)
+├── Web UI (:8000)
 ├── API Server (:8000)
 ├── PostgreSQL (:5432)
 └── Ollama / vLLM

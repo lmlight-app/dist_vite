@@ -30,14 +30,14 @@ ultralytics は GPU を自動検出します。CUDA/MPS が利用可能な場合
 
 ```bash
 # デフォルト (yolov8n)
-curl -fsSL https://raw.githubusercontent.com/lmlight-app/dist_v3/main/scripts/install-yolo.sh | bash
+curl -fsSL https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-yolo.sh | bash
 
 # モデル指定
-curl -fsSL https://raw.githubusercontent.com/lmlight-app/dist_v3/main/scripts/install-yolo.sh | bash -s -- yolov8n
-curl -fsSL https://raw.githubusercontent.com/lmlight-app/dist_v3/main/scripts/install-yolo.sh | bash -s -- yolov8s
-curl -fsSL https://raw.githubusercontent.com/lmlight-app/dist_v3/main/scripts/install-yolo.sh | bash -s -- yolov8m
-curl -fsSL https://raw.githubusercontent.com/lmlight-app/dist_v3/main/scripts/install-yolo.sh | bash -s -- yolov8l
-curl -fsSL https://raw.githubusercontent.com/lmlight-app/dist_v3/main/scripts/install-yolo.sh | bash -s -- yolov8x
+curl -fsSL https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-yolo.sh | bash -s -- yolov8n
+curl -fsSL https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-yolo.sh | bash -s -- yolov8s
+curl -fsSL https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-yolo.sh | bash -s -- yolov8m
+curl -fsSL https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-yolo.sh | bash -s -- yolov8l
+curl -fsSL https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-yolo.sh | bash -s -- yolov8x
 ```
 
 インストール後、LM Lightを再起動すると画像処理ページに「物体検出」タブが表示されます。

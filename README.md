@@ -2,6 +2,14 @@
 
 > **Vite Edition**: Node.js不要。バイナリ1つでAPI + フロントエンドが動作します。
 
+## セットアップ
+
+このリポジトリはprivateです。インストールにはGitHub Personal Access Token (PAT) が必要です。
+
+```bash
+export GH_TOKEN="ghp_your_token_here"
+```
+
 ## Ollamaバージョン
 
 ### インストール | アップデート
@@ -9,19 +17,37 @@
 #### macOS
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-macos.sh | bash
+curl -fsSL -H "Authorization: token $GH_TOKEN" \
+  https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-macos.sh | bash
 ```
 
 #### Linux
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-linux.sh | bash
+curl -fsSL -H "Authorization: token $GH_TOKEN" \
+  https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-linux.sh | bash
 ```
 
 #### Windows
 
 ```powershell
-irm https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-windows.ps1 | iex
+$env:GH_TOKEN = "ghp_your_token_here"
+$h = @{ Authorization = "token $env:GH_TOKEN" }
+iex (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-windows.ps1" -Headers $h).Content
+```
+
+#### Staging (GitHub Releases直接、R2昇格前のテスト用)
+
+```bash
+# macOS
+LMLIGHT_BASE_URL=https://github.com/lmlight-app/dist_vite/releases/latest/download \
+  curl -fsSL -H "Authorization: token $GH_TOKEN" \
+  https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-macos.sh | bash
+
+# Linux
+LMLIGHT_BASE_URL=https://github.com/lmlight-app/dist_vite/releases/latest/download \
+  curl -fsSL -H "Authorization: token $GH_TOKEN" \
+  https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-linux.sh | bash
 ```
 
 ---

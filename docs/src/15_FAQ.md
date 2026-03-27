@@ -74,10 +74,10 @@ WAV, MP3, M4A, MP4, WebM, OGG, FLAC, AAC（最大100MB）
 ## 認証・ユーザー管理
 
 ### Q. Active Directory と連携できますか？
-はい。LDAP認証に対応しており、Active Directory / OpenLDAP と連携可能です。ユーザーは初回ログイン時に自動作成されます。`.env` で `NEXT_PUBLIC_AUTH_MODE=ldap` と設定し、LDAP関連の環境変数を設定してください。
+はい。LDAP認証に対応しており、Active Directory / OpenLDAP と連携可能です。ユーザーは初回ログイン時に自動作成されます。`.env` で `AUTH_MODE=ldap` と設定し、LDAP関連の環境変数を設定してください。
 
 ### Q. Azure AD（Microsoft Entra ID）と連携できますか？
-はい。OIDC認証に対応しています。`.env` で `NEXT_PUBLIC_AUTH_MODE=oidc` と設定し、OIDC_CLIENT_ID / OIDC_CLIENT_SECRET / OIDC_TENANT_ID を設定してください。
+はい。OIDC認証に対応しています。`.env` で `AUTH_MODE=oidc` と設定し、OIDC_CLIENT_ID / OIDC_CLIENT_SECRET / OIDC_TENANT_ID を設定してください。
 
 ### Q. AD/OIDC環境でも管理者はローカルログインできますか？
 はい。admin@local アカウントは認証モードに関わらず常にローカル認証（ID/パスワード）でログイン可能です。

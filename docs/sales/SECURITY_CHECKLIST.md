@@ -68,9 +68,9 @@
 
 | No. | 項目 | 回答 |
 |-----|------|------|
-| 5.1 | SQLインジェクション対策 | **Prisma（フロントエンド）+ SQLAlchemy（API）によるパラメータ化クエリ** |
-| 5.2 | XSS対策 | **Next.js / React の自動エスケープ処理** |
-| 5.3 | CSRF対策 | **NextAuth 組み込みのCSRFトークン + Next.js Server Actions** |
+| 5.1 | SQLインジェクション対策 | **SQLAlchemy によるパラメータ化クエリ** |
+| 5.2 | XSS対策 | **React の自動エスケープ処理** |
+| 5.3 | CSRF対策 | **JWT認証 + FastAPI CORS** |
 | 5.4 | API認証 | ライセンス検証 + セッション認証の二重チェック |
 | 5.5 | ファイルアップロード制限 | 最大100MB（音声ファイル） |
 | 5.6 | API ドキュメント保護 | Swagger UI / ReDoc は Basic認証で保護 |
@@ -91,13 +91,13 @@
 
 | No. | 項目 | 回答 |
 |-----|------|------|
-| 7.1 | フロントエンド | Next.js 15 + React 19 |
+| 7.1 | フロントエンド | Vite + React 19 |
 | 7.2 | バックエンド | FastAPI（Python） |
 | 7.3 | データベース | PostgreSQL 17 + pgvector |
-| 7.4 | ORM | Prisma（フロントエンド）/ SQLAlchemy（API） |
+| 7.4 | ORM | SQLAlchemy |
 | 7.5 | LLMエンジン | Ollama（標準）/ vLLM（高性能） |
 | 7.7 | LLM通信方式 | httpxによるHTTPリクエスト（OpenAI互換エンドポイント宛、OpenAI SDK不使用） |
-| 7.6 | 認証ライブラリ | NextAuth v5 + ldapts（LDAP） |
+| 7.6 | 認証ライブラリ | JWT認証 v5 + ldapts（LDAP） |
 
 ---
 

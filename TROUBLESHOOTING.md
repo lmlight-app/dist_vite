@@ -174,33 +174,6 @@ ollama list
 
 ---
 
-## Python関連
-
-### Pythonが見つからない
-
-**症状:**
-```
-❌ Python not found
-```
-
-**解決策:**
-
-macOS:
-```bash
-brew install node
-```
-
-Linux:
-```bash
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt install -y nodejs
-```
-
-Windows:
-```powershell
-winget install OpenJS.NodeJS.LTS
-```
-
 ---
 
 ## PostgreSQL関連
@@ -357,5 +330,4 @@ kill -9 <PID>
 問題が解決しない場合、ログを確認:
 ```bash
 cat ~/.local/lmlight/logs/api.log
-cat ~/.local/lmlight/logs/app.log
 ```
