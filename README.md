@@ -38,6 +38,8 @@ iex (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/lmlight-app/dist_
 
 #### Staging (GitHub Releases直接、R2昇格前のテスト用)
 
+gh CLIが必要です（privateリポのrelease assetダウンロードに使用）。
+
 ```bash
 # macOS
 LMLIGHT_BASE_URL=https://github.com/lmlight-app/dist_vite/releases/latest/download \
@@ -48,6 +50,12 @@ LMLIGHT_BASE_URL=https://github.com/lmlight-app/dist_vite/releases/latest/downlo
 LMLIGHT_BASE_URL=https://github.com/lmlight-app/dist_vite/releases/latest/download \
   curl -fsSL -H "Authorization: token $GH_TOKEN" \
   https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-linux.sh | bash
+
+# Windows
+$env:GH_TOKEN = "ghp_your_token_here"
+$env:LMLIGHT_BASE_URL = "https://github.com/lmlight-app/dist_vite/releases/latest/download"
+$h = @{ Authorization = "token $env:GH_TOKEN" }
+iex (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-windows.ps1" -Headers $h).Content
 ```
 
 ---
@@ -112,7 +120,7 @@ pgvector は [手動インストール](https://github.com/pgvector/pgvector#win
 
 ```bash
 # macOS/Linux
-curl -fsSL https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/db_setup.sh | bash
+curl -fsSL -H "Authorization: token $GH_TOKEN" https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/db_setup.sh | bash
 ```
 
 **データベース削除:**
@@ -160,12 +168,13 @@ ollama pull nomic-embed-text    # RAG用埋め込みモデル (推奨)
 
 ```bash
 # macOS / Linux
-curl -fsSL https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-transcribe.sh | bash
+curl -fsSL -H "Authorization: token $GH_TOKEN" https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-transcribe.sh | bash
 ```
 
 ```powershell
 # Windows
-irm https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-transcribe.ps1 | iex
+$h = @{ Authorization = "token $env:GH_TOKEN" }
+iex (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-transcribe.ps1" -Headers $h).Content
 ```
 
 ### ライセンス (Perpetual License)
@@ -285,7 +294,7 @@ $p = [Environment]::GetEnvironmentVariable("Path", "User") -split ";" | Where-Ob
 ### インストール | アップデート (Linux のみ)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-linux-vllm.sh | bash
+curl -fsSL -H "Authorization: token $GH_TOKEN" https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-linux-vllm.sh | bash
 ```
 
 インストール先: `~/.local/lmlight-vllm`
