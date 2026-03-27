@@ -76,7 +76,7 @@ if [ -f "$INSTALL_DIR/.env" ]; then
     fi
 fi
 echo "Setting up database..."
-curl -fsSL https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/db_setup.sh | bash
+curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/db_setup.sh | bash
 
 cat > "$INSTALL_DIR/start.sh" << 'EOF'
 #!/bin/bash
