@@ -66,13 +66,7 @@ Write-Info "ステップ 1/4: バイナリをダウンロード中..."
 
 $BACKEND_FILE = "lmlight-vite-windows-$ARCH.exe"
 Write-Info "バイナリをダウンロード中... ($BACKEND_FILE)"
-if ($BASE_URL -like "*github.com*" -and $env:GH_TOKEN) {
-    # Private repo: use gh CLI
-    gh release download --repo lmlight-app/dist_vite --pattern $BACKEND_FILE -D $env:TEMP --clobber
-    Move-Item "$env:TEMP\$BACKEND_FILE" "$INSTALL_DIR\api.exe" -Force
-} else {
-    Invoke-WebRequest -Uri "$BASE_URL/$BACKEND_FILE" -OutFile "$INSTALL_DIR\api.exe" -UseBasicParsing
-}
+Invoke-WebRequest -Uri "$BASE_URL/$BACKEND_FILE" -OutFile "$INSTALL_DIR\api.exe" -UseBasicParsing
 Write-Success "バイナリをダウンロードしました"
 
 # ============================================================

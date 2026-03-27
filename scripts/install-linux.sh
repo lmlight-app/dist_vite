@@ -8,17 +8,6 @@ INSTALL_DIR="${LMLIGHT_INSTALL_DIR:-$HOME/.local/lmlight}"
 ARCH="$(uname -m)"
 case "$ARCH" in x86_64|amd64) ARCH="amd64" ;; aarch64|arm64) ARCH="arm64" ;; esac
 
-# Auth header for private repo access
-AUTH_HEADER=""
-[ -n "$GH_TOKEN" ] && AUTH_HEADER="-H \"Authorization: token $GH_TOKEN\""
-
-# Script URL: R2 if BASE_URL is R2, otherwise GitHub raw
-if [[ "$BASE_URL" == *"r2.dev"* ]]; then
-  SCRIPT_URL="https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts"
-else
-  SCRIPT_URL="https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts"
-fi
-
 echo "Installing AI Server Vite Edition ($ARCH) to $INSTALL_DIR"
 
 mkdir -p "$INSTALL_DIR"/logs
@@ -26,14 +15,8 @@ mkdir -p "$INSTALL_DIR"/logs
 [ -f "$INSTALL_DIR/stop.sh" ] && "$INSTALL_DIR/stop.sh" 2>/dev/null || true
 
 # Download single binary (API + frontend embedded)
-BINARY_NAME="lmlight-vite-linux-$ARCH"
-echo "Downloading $BINARY_NAME..."
-if [[ "$BASE_URL" == *"github.com"* ]] && [ -n "$GH_TOKEN" ]; then
-  gh release download --repo lmlight-app/dist_vite --pattern "$BINARY_NAME" -D /tmp --clobber
-  mv "/tmp/$BINARY_NAME" "$INSTALL_DIR/api"
-else
-  eval curl -fSL $AUTH_HEADER "$BASE_URL/$BINARY_NAME" -o "$INSTALL_DIR/api"
-fi
+echo "Downloading AI Server..."
+curl -fSL "$BASE_URL/lmlight-vite-linux-$ARCH" -o "$INSTALL_DIR/api"
 chmod +x "$INSTALL_DIR/api"
 
 [ ! -f "$INSTALL_DIR/.env" ] && cat > "$INSTALL_DIR/.env" << EOF
@@ -96,7 +79,7 @@ if [ -f "$INSTALL_DIR/.env" ]; then
     fi
 fi
 echo "Setting up database..."
-eval curl -fsSL $AUTH_HEADER "$SCRIPT_URL/db_setup.sh" | bash
+curl -fsSL https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/db_setup.sh | bash
 
 cat > "$INSTALL_DIR/start.sh" << 'EOF'
 #!/bin/bash

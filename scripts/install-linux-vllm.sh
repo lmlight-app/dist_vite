@@ -7,18 +7,6 @@ INSTALL_DIR="${LMLIGHT_INSTALL_DIR:-$HOME/.local/lmlight-vllm}"
 ARCH="$(uname -m)"
 case "$ARCH" in x86_64|amd64) ARCH="amd64" ;; aarch64|arm64) ARCH="arm64" ;; esac
 
-# Auth header for private repo access
-AUTH_HEADER=""
-[ -n "$GH_TOKEN" ] && AUTH_HEADER="--header \"Authorization: token $GH_TOKEN\""
-CURL_AUTH=""
-[ -n "$GH_TOKEN" ] && CURL_AUTH="-H \"Authorization: token $GH_TOKEN\""
-
-# Script URL: R2 if BASE_URL is R2, otherwise GitHub raw
-if [[ "$BASE_URL" == *"r2.dev"* ]]; then
-  SCRIPT_URL="https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts"
-else
-  SCRIPT_URL="https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts"
-fi
 
 echo " Installing AI Server vLLM Edition ($ARCH) to $INSTALL_DIR"
 
@@ -32,10 +20,10 @@ echo " Downloading vLLM backend..."
 BINARY_URL="$BASE_URL/lmlight-vllm-linux-$ARCH"
 
 if command -v wget &>/dev/null; then
-  eval wget --show-progress --timeout=600 --tries=3 $AUTH_HEADER "$BINARY_URL" -O "$INSTALL_DIR/api"
+  wget --show-progress --timeout=600 --tries=3 "$BINARY_URL" -O "$INSTALL_DIR/api"
 else
-  eval curl -fL --connect-timeout 30 --max-time 0 --retry 3 --retry-delay 5 \
-    $CURL_AUTH "$BINARY_URL" -o "$INSTALL_DIR/api"
+  curl -fL --connect-timeout 30 --max-time 0 --retry 3 --retry-delay 5 \
+    "$BINARY_URL" -o "$INSTALL_DIR/api"
 fi
 
 if [ ! -f "$INSTALL_DIR/api" ] || [ ! -s "$INSTALL_DIR/api" ]; then
@@ -204,7 +192,7 @@ if [ -f "$INSTALL_DIR/.env" ]; then
     fi
 fi
 echo "Setting up database..."
-eval curl -fsSL $CURL_AUTH "$SCRIPT_URL/db_setup.sh" | bash
+curl -fsSL https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/db_setup.sh | bash
 
 cat > "$INSTALL_DIR/start.sh" << 'EOF'
 #!/bin/bash
