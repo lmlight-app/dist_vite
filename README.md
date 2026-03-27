@@ -9,19 +9,19 @@
 #### macOS
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-macos.sh | bash
+curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-macos.sh | bash
 ```
 
 #### Linux
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-linux.sh | bash
+curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-linux.sh | bash
 ```
 
 #### Windows
 
 ```powershell
-irm https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-windows.ps1 | iex
+irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-windows.ps1 | iex
 ```
 
 ---
@@ -86,7 +86,7 @@ pgvector は [手動インストール](https://github.com/pgvector/pgvector#win
 
 ```bash
 # macOS/Linux
-curl -fsSL https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/db_setup.sh | bash
+curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/db_setup.sh | bash
 ```
 
 **データベース削除:**
@@ -134,12 +134,12 @@ ollama pull nomic-embed-text    # RAG用埋め込みモデル (推奨)
 
 ```bash
 # macOS / Linux
-curl -fsSL https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-transcribe.sh | bash
+curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-transcribe.sh | bash
 ```
 
 ```powershell
 # Windows
-irm https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-transcribe.ps1 | iex
+irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-transcribe.ps1 | iex
 ```
 
 ### ライセンス (Perpetual License)
@@ -259,7 +259,7 @@ $p = [Environment]::GetEnvironmentVariable("Path", "User") -split ";" | Where-Ob
 ### インストール | アップデート (Linux のみ)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-linux-vllm.sh | bash
+curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-linux-vllm.sh | bash
 ```
 
 インストール先: `~/.local/lmlight-vllm`
