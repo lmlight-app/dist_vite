@@ -26,8 +26,15 @@ mkdir -p "$INSTALL_DIR"/logs
 [ -f "$INSTALL_DIR/stop.sh" ] && "$INSTALL_DIR/stop.sh" 2>/dev/null || true
 
 # Download single binary (API + frontend embedded)
-echo "Downloading AI Server..."
-eval curl -fSL $AUTH_HEADER "$BASE_URL/lmlight-vite-macos-$ARCH" -o "$INSTALL_DIR/api"
+BINARY_NAME="lmlight-vite-macos-$ARCH"
+echo "Downloading $BINARY_NAME..."
+if [[ "$BASE_URL" == *"github.com"* ]] && [ -n "$GH_TOKEN" ]; then
+  # Private repo: use gh CLI to download from releases
+  gh release download --repo lmlight-app/dist_vite --pattern "$BINARY_NAME" -D /tmp --clobber
+  mv "/tmp/$BINARY_NAME" "$INSTALL_DIR/api"
+else
+  eval curl -fSL $AUTH_HEADER "$BASE_URL/$BINARY_NAME" -o "$INSTALL_DIR/api"
+fi
 chmod +x "$INSTALL_DIR/api"
 
 [ ! -f "$INSTALL_DIR/.env" ] && cat > "$INSTALL_DIR/.env" << EOF
