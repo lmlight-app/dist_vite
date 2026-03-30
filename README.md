@@ -38,10 +38,10 @@ irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-win
 
 #### macOS
 
-PostgreSQL 17, Ollama, FFmpeg, Tesseract OCR
+PostgreSQL 17, pgvector, Ollama, FFmpeg, Tesseract OCR
 
 ```bash
-brew install postgresql@17 ollama ffmpeg tesseract
+brew install postgresql@17 pgvector ollama ffmpeg tesseract
 ```
 
 #### Linux (Ubuntu/Debian)
@@ -56,13 +56,27 @@ sudo apt install -y postgresql ffmpeg tesseract-ocr
 curl -fsSL https://ollama.com/install.sh | sh
 ```
 
+**pgvector:** インストール済みの PostgreSQL バージョンに合わせてインストールしてください。
+
+```bash
+# PostgreSQL のバージョン確認
+psql --version
+
+# バージョンに合わせてインストール (例: PG17 の場合)
+sudo apt install -y postgresql-17-pgvector
+```
+
 #### Windows
+
+> **⚠️ [Visual C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) が必須です。** pgvector のビルドに必要です。
 
 PostgreSQL 17, Ollama, FFmpeg, Tesseract OCR
 
 ```powershell
 winget install PostgreSQL.PostgreSQL.17 Ollama.Ollama Gyan.FFmpeg UB-Mannheim.TesseractOCR
 ```
+
+pgvector は [手動インストール](https://github.com/pgvector/pgvector#windows) が必要です。
 
 ### データベース
 
@@ -260,6 +274,13 @@ curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/inst
 | Tesseract OCR | `sudo apt install tesseract-ocr tesseract-ocr-jpn` |
 
 > **Note:** Node.js は不要です。NVIDIA GPU + CUDA 12.x 以上が必要です。
+
+**pgvector:**
+
+```bash
+psql --version
+sudo apt install -y postgresql-17-pgvector
+```
 
 ### 設定ファイル (.env)
 
