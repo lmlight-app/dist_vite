@@ -9,7 +9,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$InstallDir = "$env:LOCALAPPDATA\digitalbase"
+$InstallDir = "$env:LOCALAPPDATA\db"
 $ModelDir = "$InstallDir\models\yolo"
 $EnvFile = "$InstallDir\.env"
 
