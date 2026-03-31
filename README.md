@@ -27,8 +27,8 @@ irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-win
 ---
 
 インストール先:
-- macOS/Linux: `~/.local/lmlight`
-- Windows: `%LOCALAPPDATA%\lmlight`
+- macOS/Linux: `~/.local/db`
+- Windows: `%LOCALAPPDATA%\db`
 
 ## 環境構築 (インストール前に実行)
 
@@ -89,7 +89,7 @@ curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/db_s
 
 **データベース削除:**
 ```bash
-psql -U postgres -c "DROP DATABASE lmlight;"
+psql -U postgres -c "DROP DATABASE digitalbase;"
 # その後、上記のdb_setupを再実行
 ```
 
@@ -107,14 +107,14 @@ ollama pull nomic-embed-text    # RAG用埋め込みモデル (推奨)
 ### 設定ファイル (.env)
 
 インストール後、`.env` を編集:
-- macOS/Linux: `~/.local/lmlight/.env`
-- Windows: `%LOCALAPPDATA%\lmlight\.env`
+- macOS/Linux: `~/.local/db/.env`
+- Windows: `%LOCALAPPDATA%\db\.env`
 
 | 環境変数 | 説明 | デフォルト |
 |---------|------|-----------|
-| `DATABASE_URL` | PostgreSQL接続URL | `postgresql://lmlight:lmlight@localhost:5432/lmlight` |
+| `DATABASE_URL` | PostgreSQL接続URL | `postgresql://digitalbase:digitalbase@localhost:5432/digitalbase` |
 | `OLLAMA_BASE_URL` | OllamaサーバーURL | `http://localhost:11434` |
-| `LICENSE_FILE_PATH` | ライセンスファイルのパス | `~/.local/lmlight/license.lic` |
+| `LICENSE_FILE_PATH` | ライセンスファイルのパス | `~/.local/db/license.lic` |
 | `API_HOST` | バインドアドレス | `0.0.0.0` (全インターフェース) |
 | `API_PORT` | ポート (API + Web) | `8000` |
 | `JWT_SECRET` | JWT認証シークレット | インストーラーが自動生成 |
@@ -165,8 +165,8 @@ irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-tra
 
 `license.lic` を下記に配置:
 
-- macOS/Linux: `~/.local/lmlight/license.lic`
-- Windows: `%LOCALAPPDATA%\lmlight\license.lic`
+- macOS/Linux: `~/.local/db/license.lic`
+- Windows: `%LOCALAPPDATA%\db\license.lic`
 
 
 ## 起動・停止
@@ -219,28 +219,28 @@ lmlight stop    # 停止
 
 **macOS:**
 ```bash
-rm -rf ~/.local/lmlight
-sudo rm -f /usr/local/bin/lmlight
+rm -rf ~/.local/db
+sudo rm -f /usr/local/bin/db
 ```
 
 **Linux:**
 ```bash
-rm -rf ~/.local/lmlight
-sudo rm -f /usr/local/bin/lmlight
+rm -rf ~/.local/db
+sudo rm -f /usr/local/bin/db
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-Remove-Item -Recurse -Force "$env:LOCALAPPDATA\lmlight"
-$p = [Environment]::GetEnvironmentVariable("Path", "User") -split ";" | Where-Object { $_ -notlike "*lmlight*" }
+Remove-Item -Recurse -Force "$env:LOCALAPPDATA\db"
+$p = [Environment]::GetEnvironmentVariable("Path", "User") -split ";" | Where-Object { $_ -notlike "*\db" -and $_ -notlike "*\db\*" }
 [Environment]::SetEnvironmentVariable("Path", ($p -join ";"), "User")
 ```
 
 ## ディレクトリ構造
 
 ```
-~/.local/lmlight/
+~/.local/db/
 ├── api                    # バイナリ (API + フロントエンド一体型)
 ├── models/whisper/        # 文字起こしモデル (オプション)
 ├── .env                   # 設定ファイル
@@ -260,7 +260,7 @@ $p = [Environment]::GetEnvironmentVariable("Path", "User") -split ";" | Where-Ob
 curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-linux-vllm.sh | bash
 ```
 
-インストール先: `~/.local/lmlight-vllm`
+インストール先: `~/.local/db-vllm`
 
 ### 必要な依存関係
 
@@ -282,11 +282,11 @@ sudo apt install -y postgresql-17-pgvector
 
 ### 設定ファイル (.env)
 
-`~/.local/lmlight-vllm/.env` を編集:
+`~/.local/db-vllm/.env` を編集:
 
 | 環境変数 | 説明 | デフォルト |
 |---------|------|-----------|
-| `DATABASE_URL` | PostgreSQL接続URL | `postgresql://lmlight:lmlight@localhost:5432/lmlight` |
+| `DATABASE_URL` | PostgreSQL接続URL | `postgresql://digitalbase:digitalbase@localhost:5432/digitalbase` |
 | `VLLM_BASE_URL` | vLLMチャットサーバーURL | `http://localhost:8080` |
 | `VLLM_EMBED_BASE_URL` | vLLM埋め込みサーバーURL | `http://localhost:8081` |
 | `VLLM_AUTO_START` | vLLM自動起動 | `true` |
@@ -296,7 +296,7 @@ sudo apt install -y postgresql-17-pgvector
 | `API_PORT` | ポート (API + Web) | `8000` |
 | `JWT_SECRET` | JWT認証シークレット | インストーラーが自動生成 |
 | `AUTH_MODE` | 認証方式 | `local` |
-| `LICENSE_FILE_PATH` | ライセンスファイル | `~/.local/lmlight-vllm/license.lic` |
+| `LICENSE_FILE_PATH` | ライセンスファイル | `~/.local/db-vllm/license.lic` |
 
 ### 起動・停止
 
@@ -317,11 +317,11 @@ docker pull lmlight/lmlight-vite:latest
 docker run -d \
   --name lmlight \
   -p 8000:8000 \
-  -e DATABASE_URL=postgresql://lmlight:lmlight@host.docker.internal:5432/lmlight \
+  -e DATABASE_URL=postgresql://digitalbase:digitalbase@host.docker.internal:5432/digitalbase \
   -e OLLAMA_BASE_URL=http://host.docker.internal:11434 \
   -e JWT_SECRET=$(openssl rand -hex 32) \
   -e AUTH_MODE=local \
-  -v ~/.local/lmlight/license.lic:/app/license.lic:ro \
+  -v ~/.local/db/license.lic:/app/license.lic:ro \
   --restart unless-stopped \
   lmlight/lmlight-vite:latest
 ```
@@ -335,13 +335,13 @@ docker run -d \
   --name lmlight-vllm \
   --gpus all \
   -p 8000:8000 \
-  -e DATABASE_URL=postgresql://lmlight:lmlight@host.docker.internal:5432/lmlight \
+  -e DATABASE_URL=postgresql://digitalbase:digitalbase@host.docker.internal:5432/digitalbase \
   -e VLLM_BASE_URL=http://localhost:8080 \
   -e VLLM_EMBED_BASE_URL=http://localhost:8081 \
   -e VLLM_AUTO_START=true \
   -e JWT_SECRET=$(openssl rand -hex 32) \
   -e AUTH_MODE=local \
-  -v ~/.local/lmlight-vllm/license.lic:/app/license.lic:ro \
+  -v ~/.local/db-vllm/license.lic:/app/license.lic:ro \
   -v ~/.cache/huggingface:/root/.cache/huggingface \
   --restart unless-stopped \
   lmlight/lmlight-vllm-vite:latest
@@ -354,9 +354,9 @@ services:
   postgres:
     image: pgvector/pgvector:pg16
     environment:
-      POSTGRES_USER: lmlight
-      POSTGRES_PASSWORD: lmlight
-      POSTGRES_DB: lmlight
+      POSTGRES_USER: digitalbase
+      POSTGRES_PASSWORD: digitalbase
+      POSTGRES_DB: digitalbase
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
@@ -364,7 +364,7 @@ services:
   api:
     image: lmlight/lmlight-vite:latest
     environment:
-      DATABASE_URL: postgresql://lmlight:lmlight@postgres:5432/lmlight
+      DATABASE_URL: postgresql://digitalbase:digitalbase@postgres:5432/digitalbase
       OLLAMA_BASE_URL: http://host.docker.internal:11434
       JWT_SECRET: change-me-to-random-secret
       AUTH_MODE: local

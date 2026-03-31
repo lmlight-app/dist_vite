@@ -5,7 +5,7 @@ set -e
 
 DOCKER_USER="lmlight"
 IMAGE="$DOCKER_USER/lmlight-vite:latest"
-CONTAINER_NAME="digitalbase"
+CONTAINER_NAME="db"
 
 echo "🚀 Installing LM Light (Docker - Ollama Edition)"
 echo ""
@@ -29,14 +29,14 @@ if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
 fi
 
 # Create data directory
-DATA_DIR="$HOME/.local/digitalbase"
+DATA_DIR="$HOME/.local/db"
 mkdir -p "$DATA_DIR"
 
 # Generate JWT secret if not exists
 if [ ! -f "$DATA_DIR/.env" ]; then
     JWT_SECRET=$(openssl rand -hex 32)
     cat > "$DATA_DIR/.env" <<EOF
-DATABASE_URL=postgresql://lmlight:lmlight@host.docker.internal:5432/lmlight
+DATABASE_URL=postgresql://digitalbase:digitalbase@host.docker.internal:5432/digitalbase
 OLLAMA_BASE_URL=http://host.docker.internal:11434
 JWT_SECRET=$JWT_SECRET
 AUTH_MODE=local

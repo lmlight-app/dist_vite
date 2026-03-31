@@ -5,7 +5,7 @@ set -e
 
 DOCKER_USER="lmlight"
 IMAGE="$DOCKER_USER/lmlight-vllm-vite:latest"
-CONTAINER_NAME="digitalbase-vllm"
+CONTAINER_NAME="db-vllm"
 
 echo "🚀 Installing LM Light (Docker - vLLM Edition)"
 echo ""
@@ -35,14 +35,14 @@ if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
 fi
 
 # Create data directory
-DATA_DIR="$HOME/.local/digitalbase-vllm"
+DATA_DIR="$HOME/.local/db-vllm"
 mkdir -p "$DATA_DIR"
 
 # Generate JWT secret if not exists
 if [ ! -f "$DATA_DIR/.env" ]; then
     JWT_SECRET=$(openssl rand -hex 32)
     cat > "$DATA_DIR/.env" <<EOF
-DATABASE_URL=postgresql://lmlight:lmlight@host.docker.internal:5432/lmlight
+DATABASE_URL=postgresql://digitalbase:digitalbase@host.docker.internal:5432/digitalbase
 VLLM_BASE_URL=http://localhost:8080
 VLLM_EMBED_BASE_URL=http://localhost:8081
 VLLM_AUTO_START=true
