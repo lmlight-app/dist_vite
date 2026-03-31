@@ -3,8 +3,8 @@
 # Single binary with embedded frontend - no Node.js required
 set -e
 
-BASE_URL="${LMLIGHT_BASE_URL:-https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-latest}"
-INSTALL_DIR="${LMLIGHT_INSTALL_DIR:-$HOME/.local/lmlight}"
+BASE_URL="${DB_BASE_URL:-https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-latest}"
+INSTALL_DIR="${DB_INSTALL_DIR:-$HOME/.local/digitalbase}"
 ARCH="$(uname -m)"
 case "$ARCH" in x86_64|amd64) ARCH="amd64" ;; aarch64|arm64) ARCH="arm64" ;; esac
 
@@ -119,27 +119,27 @@ chmod +x "$INSTALL_DIR/start.sh"
 
 cat > "$INSTALL_DIR/stop.sh" << 'EOF'
 #!/bin/bash
-pkill -f "lmlight/start\.sh" 2>/dev/null
+pkill -f "digitalbase/start\.sh" 2>/dev/null
 sleep 1
 pkill -f "\./api$" 2>/dev/null
 echo "Stopped"
 EOF
 chmod +x "$INSTALL_DIR/stop.sh"
 
-# Create lmlight CLI script
-cat > "$INSTALL_DIR/lmlight" << 'EOF'
+# Create db CLI script
+cat > "$INSTALL_DIR/db" << 'EOF'
 #!/bin/bash
-LMLIGHT_HOME="${LMLIGHT_HOME:-$HOME/.local/lmlight}"
+DB_HOME="${DB_HOME:-$HOME/.local/digitalbase}"
 case "$1" in
-    start) "$LMLIGHT_HOME/start.sh" ;;
-    stop)  "$LMLIGHT_HOME/stop.sh" ;;
-    *)     echo "Usage: lmlight {start|stop}"; exit 1 ;;
+    start) "$DB_HOME/start.sh" ;;
+    stop)  "$DB_HOME/stop.sh" ;;
+    *)     echo "Usage: db {start|stop}"; exit 1 ;;
 esac
 EOF
-chmod +x "$INSTALL_DIR/lmlight"
+chmod +x "$INSTALL_DIR/db"
 
 # Create symlink to /usr/local/bin (requires sudo)
-sudo ln -sf "$INSTALL_DIR/lmlight" /usr/local/bin/lmlight 2>/dev/null || echo "⚠️  Run: sudo ln -sf $INSTALL_DIR/lmlight /usr/local/bin/lmlight"
+sudo ln -sf "$INSTALL_DIR/db" /usr/local/bin/db 2>/dev/null || echo "⚠️  Run: sudo ln -sf $INSTALL_DIR/db /usr/local/bin/db"
 
 echo ""
-echo "Done. Edit $INSTALL_DIR/.env then run: lmlight start"
+echo "Done. Edit $INSTALL_DIR/.env then run: db start"

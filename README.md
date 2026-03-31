@@ -309,9 +309,45 @@ lmlight-vllm stop    # 停止
 
 ## Docker版
 
-Docker Compose を使ったデプロイ。PostgreSQL (pgvector) も含まれるため、DB の個別インストールは不要です。
+### Ollama版
 
-### docker-compose.yml
+```bash
+docker pull lmlight/lmlight-vite:latest
+
+docker run -d \
+  --name lmlight \
+  -p 8000:8000 \
+  -e DATABASE_URL=postgresql://lmlight:lmlight@host.docker.internal:5432/lmlight \
+  -e OLLAMA_BASE_URL=http://host.docker.internal:11434 \
+  -e JWT_SECRET=$(openssl rand -hex 32) \
+  -e AUTH_MODE=local \
+  -v ~/.local/lmlight/license.lic:/app/license.lic:ro \
+  --restart unless-stopped \
+  lmlight/lmlight-vite:latest
+```
+
+### vLLM版（GPU）
+
+```bash
+docker pull lmlight/lmlight-vllm-vite:latest
+
+docker run -d \
+  --name lmlight-vllm \
+  --gpus all \
+  -p 8000:8000 \
+  -e DATABASE_URL=postgresql://lmlight:lmlight@host.docker.internal:5432/lmlight \
+  -e VLLM_BASE_URL=http://localhost:8080 \
+  -e VLLM_EMBED_BASE_URL=http://localhost:8081 \
+  -e VLLM_AUTO_START=true \
+  -e JWT_SECRET=$(openssl rand -hex 32) \
+  -e AUTH_MODE=local \
+  -v ~/.local/lmlight-vllm/license.lic:/app/license.lic:ro \
+  -v ~/.cache/huggingface:/root/.cache/huggingface \
+  --restart unless-stopped \
+  lmlight/lmlight-vllm-vite:latest
+```
+
+### PostgreSQLも一緒に起動する場合（docker-compose）
 
 ```yaml
 services:
@@ -327,7 +363,11 @@ services:
 
   api:
     image: lmlight/lmlight-vite:latest
-    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://lmlight:lmlight@postgres:5432/lmlight
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      JWT_SECRET: change-me-to-random-secret
+      AUTH_MODE: local
     volumes:
       - ./license.lic:/app/license.lic:ro
     ports:
@@ -342,30 +382,25 @@ volumes:
   pgdata:
 ```
 
-### .env
-
-```bash
-DATABASE_URL=postgresql://lmlight:lmlight@postgres:5432/lmlight
-OLLAMA_BASE_URL=http://host.docker.internal:11434
-API_PORT=8000
-API_HOST=0.0.0.0
-JWT_SECRET=change-me-to-random-secret
-AUTH_MODE=local
-LICENSE_FILE_PATH=/app/license.lic
-```
-
-### 起動
-
 ```bash
 docker compose up -d      # 起動
 docker compose logs -f    # ログ確認
 docker compose down       # 停止
 ```
 
+### 操作
+
+```bash
+docker logs lmlight                    # ログ
+docker stop lmlight                     # 停止
+docker start lmlight                    # 起動
+docker pull lmlight/lmlight-vite:latest && docker restart lmlight  # アップデート
+```
+
 - アクセス: http://localhost:8000
 - 初回ログイン: `admin@local` / `admin123`
 
-> **Note:** Vite Editionではフロントエンドコンテナは不要です。APIコンテナ1つで完結します。
+> **Note:** フロントエンドコンテナは不要。APIコンテナ1つで完結します。
 
 ---
 

@@ -4,7 +4,7 @@
 
 set -e
 
-INSTALL_DIR="${HOME}/.local/lmlight"
+INSTALL_DIR="${HOME}/.local/digitalbase"
 MODEL_DIR="${INSTALL_DIR}/models/whisper"
 ENV_FILE="${INSTALL_DIR}/.env"
 
