@@ -68,15 +68,13 @@ sudo apt install -y postgresql-17-pgvector
 
 #### Windows
 
-> **⚠️ [Visual C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) が必須です。** pgvector のビルドに必要です。
-
 PostgreSQL 17, Ollama, FFmpeg, Tesseract OCR
 
 ```powershell
 winget install PostgreSQL.PostgreSQL.17 Ollama.Ollama Gyan.FFmpeg UB-Mannheim.TesseractOCR
 ```
 
-pgvector は [手動インストール](https://github.com/pgvector/pgvector#windows) が必要です。
+> **Note:** pgvector はインストーラーが自動でセットアップします。
 
 ### データベース
 

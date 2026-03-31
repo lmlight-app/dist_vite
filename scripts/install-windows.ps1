@@ -163,7 +163,54 @@ if (Get-Command psql -ErrorAction SilentlyContinue) {
     $null = psql -U postgres -p $DB_PORT -c "CREATE DATABASE $DB_NAME OWNER $DB_USER;" 2>$null
     $null = psql -U postgres -p $DB_PORT -c "ALTER USER $DB_USER CREATEDB;" 2>$null
 
-    # pgvector拡張
+    # pgvector拡張 - 自動インストール
+    # PostgreSQL インストールパスを検出
+    $PG_DIR = $null
+    $pgVersions = @("17", "16", "15", "14")
+    foreach ($v in $pgVersions) {
+        $candidate = "C:\Program Files\PostgreSQL\$v"
+        if (Test-Path "$candidate\bin\psql.exe") {
+            $PG_DIR = $candidate
+            break
+        }
+    }
+
+    # vector.dll が未配置なら自動ダウンロード
+    if ($PG_DIR -and -not (Test-Path "$PG_DIR\lib\vector.dll")) {
+        Write-Info "pgvector をインストール中..."
+        $pgMajor = (Split-Path $PG_DIR -Leaf)
+        $pgvectorUrl = "https://github.com/andreiramani/pgvector_pgsql_windows/releases/latest/download/pgvector_pg${pgMajor}_x64.zip"
+        $pgvectorZip = "$env:TEMP\pgvector.zip"
+        $pgvectorExtract = "$env:TEMP\pgvector_extract"
+
+        try {
+            Invoke-WebRequest -Uri $pgvectorUrl -OutFile $pgvectorZip -UseBasicParsing
+            if (Test-Path $pgvectorExtract) { Remove-Item -Recurse -Force $pgvectorExtract }
+            Expand-Archive -Path $pgvectorZip -DestinationPath $pgvectorExtract -Force
+
+            # DLL とコントロールファイルを配置
+            Get-ChildItem -Path $pgvectorExtract -Recurse -Filter "vector.dll" | ForEach-Object {
+                Copy-Item $_.FullName "$PG_DIR\lib\vector.dll" -Force
+            }
+            Get-ChildItem -Path $pgvectorExtract -Recurse -Filter "vector.control" | ForEach-Object {
+                Copy-Item $_.FullName "$PG_DIR\share\extension\vector.control" -Force
+            }
+            Get-ChildItem -Path $pgvectorExtract -Recurse -Filter "vector--*.sql" | ForEach-Object {
+                Copy-Item $_.FullName "$PG_DIR\share\extension\$($_.Name)" -Force
+            }
+
+            # クリーンアップ
+            Remove-Item -Force $pgvectorZip -ErrorAction SilentlyContinue
+            Remove-Item -Recurse -Force $pgvectorExtract -ErrorAction SilentlyContinue
+
+            Write-Success "pgvector をインストールしました"
+        } catch {
+            Write-Warn "pgvector の自動インストールに失敗しました。手動インストールが必要です: https://github.com/pgvector/pgvector#windows"
+        }
+    } elseif ($PG_DIR) {
+        Write-Success "pgvector は既にインストール済みです"
+    }
+
     $null = psql -U postgres -p $DB_PORT -d $DB_NAME -c "CREATE EXTENSION IF NOT EXISTS vector;" 2>$null
 
     $ErrorActionPreference = "Stop"
