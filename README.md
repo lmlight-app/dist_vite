@@ -1,6 +1,6 @@
-# LM Light 利用マニュアル (Vite Edition)
+# DigitalBase 利用マニュアル
 
-> **Vite Edition**: Node.js不要。バイナリ1つでAPI + フロントエンドが動作します。
+> Node.js不要。バイナリ1つでAPI + フロントエンドが動作します。
 
 ## Ollamaバージョン
 
@@ -173,14 +173,14 @@ irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-tra
 
 **macOS / Linux:**
 ```bash
-lmlight start   # 起動
-lmlight stop    # 停止
+db start   # 起動
+db stop    # 停止
 ```
 
 **Windows:**
 ```powershell
-lmlight start   # 起動
-lmlight stop    # 停止
+db start   # 起動
+db stop    # 停止
 ```
 
 ## アクセス
@@ -301,8 +301,8 @@ sudo apt install -y postgresql-17-pgvector
 ### 起動・停止
 
 ```bash
-lmlight-vllm start   # 起動
-lmlight-vllm stop    # 停止
+db-vllm start   # 起動
+db-vllm stop    # 停止
 ```
 
 ---
@@ -315,7 +315,7 @@ lmlight-vllm stop    # 停止
 docker pull lmlight/lmlight-vite:latest
 
 docker run -d \
-  --name lmlight \
+  --name db \
   -p 8000:8000 \
   -e DATABASE_URL=postgresql://digitalbase:digitalbase@host.docker.internal:5432/digitalbase \
   -e OLLAMA_BASE_URL=http://host.docker.internal:11434 \
@@ -332,7 +332,7 @@ docker run -d \
 docker pull lmlight/lmlight-vllm-vite:latest
 
 docker run -d \
-  --name lmlight-vllm \
+  --name db-vllm \
   --gpus all \
   -p 8000:8000 \
   -e DATABASE_URL=postgresql://digitalbase:digitalbase@host.docker.internal:5432/digitalbase \
@@ -391,10 +391,10 @@ docker compose down       # 停止
 ### 操作
 
 ```bash
-docker logs lmlight                    # ログ
-docker stop lmlight                     # 停止
-docker start lmlight                    # 起動
-docker pull lmlight/lmlight-vite:latest && docker restart lmlight  # アップデート
+docker logs db                    # ログ
+docker stop db                     # 停止
+docker start db                    # 起動
+docker pull lmlight/lmlight-vite:latest && docker restart db  # アップデート
 ```
 
 - アクセス: http://localhost:8000
