@@ -180,6 +180,9 @@ AUTH_MODE=local
 # License Configuration
 # =============================================================================
 LICENSE_FILE_PATH=$INSTALL_DIR/license.lic
+
+# File Storage (pipeline uploads/outputs)
+FILES_DIR=$INSTALL_DIR/files
 EOF
 
 # Database setup - parse DATABASE_URL from .env if it exists (for updates with custom DB config)

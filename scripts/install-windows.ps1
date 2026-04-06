@@ -62,7 +62,7 @@ if (Test-Path "$INSTALL_DIR\api.exe") {
 # ============================================================
 # ステップ 1: バイナリダウンロード
 # ============================================================
-Write-Info "ステップ 1/4: バイナリをダウンロード中..."
+Write-Info "ステップ 1/5: バイナリをダウンロード中..."
 
 $BACKEND_FILE = "lmlight-vite-windows-$ARCH.exe"
 Write-Info "バイナリをダウンロード中... ($BACKEND_FILE)"
@@ -72,7 +72,7 @@ Write-Success "バイナリをダウンロードしました"
 # ============================================================
 # ステップ 2: 依存関係チェック
 # ============================================================
-Write-Info "ステップ 2/4: 依存関係をチェック中..."
+Write-Info "ステップ 2/5: 依存関係をチェック中..."
 
 $MISSING_DEPS = @()
 
@@ -130,7 +130,7 @@ if ($MISSING_DEPS.Count -gt 0 -and $isAdmin) {
 # ============================================================
 # ステップ 3: PostgreSQL セットアップ
 # ============================================================
-Write-Info "ステップ 3/4: PostgreSQL をセットアップ中..."
+Write-Info "ステップ 3/5: PostgreSQL をセットアップ中..."
 
 # PostgreSQL ポート検出
 $DB_PORT = "5432"
@@ -257,15 +257,15 @@ CREATE TABLE IF NOT EXISTS "DefaultSetting" (
     "customPrompt" TEXT,
     "historyLimit" INTEGER NOT NULL DEFAULT 2,
     "temperature" DOUBLE PRECISION NOT NULL DEFAULT 0.7,
-    "maxTokens" INTEGER NOT NULL DEFAULT 2048,
-    "numCtx" INTEGER NOT NULL DEFAULT 8192,
+    "maxTokens" INTEGER NOT NULL DEFAULT 8192,
+    "numCtx" INTEGER NOT NULL DEFAULT 32768,
     "topP" DOUBLE PRECISION NOT NULL DEFAULT 0.9,
     "topK" INTEGER NOT NULL DEFAULT 40,
     "repeatPenalty" DOUBLE PRECISION NOT NULL DEFAULT 1.1,
     "reasoningMode" TEXT NOT NULL DEFAULT 'normal',
     "ragTopK" INTEGER NOT NULL DEFAULT 5,
     "ragMinSimilarity" DOUBLE PRECISION NOT NULL DEFAULT 0.45,
-    "embeddingModel" TEXT NOT NULL DEFAULT 'embeddinggemma:latest',
+    "embeddingModel" TEXT NOT NULL DEFAULT '',
     "chunkSize" INTEGER NOT NULL DEFAULT 500,
     "chunkOverlap" INTEGER NOT NULL DEFAULT 100,
     "visionModel" TEXT,
@@ -564,9 +564,20 @@ CREATE INDEX IF NOT EXISTS idx_bot_user ON pgvector.embeddings (bot_id, user_id)
 CREATE INDEX IF NOT EXISTS idx_document ON pgvector.embeddings (document_id);
 CREATE INDEX IF NOT EXISTS idx_embeddings_hnsw ON pgvector.embeddings USING hnsw (embedding vector_cosine_ops);
 
--- Approval notification webhook URL
+-- Bot columns (upgrade)
 DO `$`$ BEGIN
-    ALTER TABLE "ApprovalFlow" ADD COLUMN IF NOT EXISTS "notificationWebhookUrl" TEXT;
+    ALTER TABLE "Bot" ADD COLUMN IF NOT EXISTS "url" TEXT;
+EXCEPTION WHEN undefined_table THEN null; WHEN duplicate_column THEN null; END `$`$;
+DO `$`$ BEGIN
+    ALTER TABLE "Bot" ADD COLUMN IF NOT EXISTS "shareTagId" TEXT;
+EXCEPTION WHEN undefined_table THEN null; WHEN duplicate_column THEN null; END `$`$;
+
+-- Tag columns (upgrade)
+DO `$`$ BEGIN
+    ALTER TABLE "Tag" ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
+EXCEPTION WHEN undefined_table THEN null; WHEN duplicate_column THEN null; END `$`$;
+DO `$`$ BEGIN
+    ALTER TABLE "Tag" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
 EXCEPTION WHEN undefined_table THEN null; WHEN duplicate_column THEN null; END `$`$;
 
 -- Auth provider column (AD integration, for existing installs)
@@ -575,6 +586,31 @@ DO `$`$ BEGIN
 EXCEPTION WHEN undefined_table THEN null; WHEN duplicate_column THEN null; END `$`$;
 DO `$`$ BEGIN
     ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "ldapAttributes" JSONB;
+EXCEPTION WHEN undefined_table THEN null; WHEN duplicate_column THEN null; END `$`$;
+
+-- Approval notification webhook URL
+DO `$`$ BEGIN
+    ALTER TABLE "ApprovalFlow" ADD COLUMN IF NOT EXISTS "notificationWebhookUrl" TEXT;
+EXCEPTION WHEN undefined_table THEN null; WHEN duplicate_column THEN null; END `$`$;
+
+-- Brand customization columns (upgrade)
+DO `$`$ BEGIN
+    ALTER TABLE "DefaultSetting" ADD COLUMN IF NOT EXISTS "brandColor" TEXT NOT NULL DEFAULT 'default';
+EXCEPTION WHEN undefined_table THEN null; WHEN duplicate_column THEN null; END `$`$;
+DO `$`$ BEGIN
+    ALTER TABLE "DefaultSetting" ADD COLUMN IF NOT EXISTS "customLogoText" TEXT DEFAULT 'LL';
+EXCEPTION WHEN undefined_table THEN null; WHEN duplicate_column THEN null; END `$`$;
+DO `$`$ BEGIN
+    ALTER TABLE "DefaultSetting" ADD COLUMN IF NOT EXISTS "customLogoImage" TEXT;
+EXCEPTION WHEN undefined_table THEN null; WHEN duplicate_column THEN null; END `$`$;
+DO `$`$ BEGIN
+    ALTER TABLE "DefaultSetting" ADD COLUMN IF NOT EXISTS "customTitle" TEXT DEFAULT 'LM LIGHT';
+EXCEPTION WHEN undefined_table THEN null; WHEN duplicate_column THEN null; END `$`$;
+DO `$`$ BEGIN
+    ALTER TABLE "DefaultSetting" ADD COLUMN IF NOT EXISTS "sidebarItems" JSONB;
+EXCEPTION WHEN undefined_table THEN null; WHEN duplicate_column THEN null; END `$`$;
+DO `$`$ BEGIN
+    ALTER TABLE "DefaultSetting" ADD COLUMN IF NOT EXISTS "toolSettings" JSONB;
 EXCEPTION WHEN undefined_table THEN null; WHEN duplicate_column THEN null; END `$`$;
 
 -- 管理者ユーザー (admin@local / admin123)
@@ -608,7 +644,7 @@ GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA pgvector TO $DB_USER;
 # ============================================================
 # ステップ 4: Ollama セットアップ
 # ============================================================
-Write-Info "ステップ 4/4: Ollama をセットアップ中..."
+Write-Info "ステップ 4/5: Ollama をセットアップ中..."
 
 if (Get-Command ollama -ErrorAction SilentlyContinue) {
     # Ollama が起動していない場合は起動
@@ -628,6 +664,7 @@ Write-Info "ステップ 5/5: 設定を作成中..."
 
 # .env ファイル作成 (存在しない場合のみ)
 if (-not (Test-Path "$INSTALL_DIR\.env")) {
+    $JWT_SECRET = -join ((48..57) + (97..122) | Get-Random -Count 64 | ForEach-Object { [char]$_ })
     $ENV_CONTENT = @"
 # AI Server Configuration
 DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}
@@ -643,7 +680,7 @@ API_HOST=0.0.0.0
 API_PORT=8000
 
 # Authentication
-JWT_SECRET=$(-join ((48..57) + (97..122) | Get-Random -Count 64 | ForEach-Object { [char]`$_ }))
+JWT_SECRET=$JWT_SECRET
 AUTH_MODE=local
 
 # Whisper Transcription
@@ -767,11 +804,10 @@ $null = Register-EngineEvent -SourceIdentifier PowerShell.Exiting -Action {
 
 try {
     # プロセス終了まで待機
-    Wait-Process -Id $apiProcess.Id, $appProcess.Id -ErrorAction SilentlyContinue
+    Wait-Process -Id $apiProcess.Id -ErrorAction SilentlyContinue
 } finally {
     Write-Host "Stopped"
     Stop-Process -Id $apiProcess.Id -Force -ErrorAction SilentlyContinue
-    Stop-Process -Id $appProcess.Id -Force -ErrorAction SilentlyContinue
 }
 '@
 
@@ -887,11 +923,9 @@ Set-Content -Path "$INSTALL_DIR\db.bat" -Value $BAT_CONTENT -Encoding ASCII
 $UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
 if ($UserPath -notlike "*$INSTALL_DIR*") {
     [Environment]::SetEnvironmentVariable("Path", "$UserPath;$INSTALL_DIR", "User")
+    $env:Path = "$env:Path;$INSTALL_DIR"
     Write-Success "PATH に追加しました"
 }
-
-Write-Host ""
-Write-Warn "db コマンドを使うには新しいターミナルを開いてください"
 Write-Host ""
 Write-Host "起動: db start" -ForegroundColor Blue
 Write-Host "停止: db stop" -ForegroundColor Blue
