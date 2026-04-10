@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 380" font-family="sans-serif" font-size="13">
+  <!-- outer box -->
+  <rect x="10" y="10" width="760" height="360" rx="8" fill="none" stroke="#000" stroke-width="2"/>
+  <text x="390" y="40" text-anchor="middle" font-size="16" font-weight="bold">DigitalBase の業務プロセス</text>
+
+  <!-- col 1 -->
+  <rect x="40" y="65" width="220" height="200" rx="6" fill="none" stroke="#000" stroke-width="1.5"/>
+  <text x="150" y="90" text-anchor="middle" font-weight="bold">情報検索・ナレッジ共有</text>
+  <line x1="50" y1="100" x2="250" y2="100" stroke="#000" stroke-width="1"/>
+  <text x="60" y="125">AIチャット</text>
+  <text x="60" y="148">RAG</text>
+  <text x="60" y="171">Web検索RAG</text>
+  <text x="60" y="194">ドキュメント生成</text>
+  <text x="60" y="217">Vision / OCR</text>
+  <text x="60" y="240">文字起こし</text>
+
+  <!-- col 2 -->
+  <rect x="280" y="65" width="220" height="200" rx="6" fill="none" stroke="#000" stroke-width="1.5"/>
+  <text x="390" y="90" text-anchor="middle" font-weight="bold">データ連携・自動処理</text>
+  <line x1="290" y1="100" x2="490" y2="100" stroke="#000" stroke-width="1"/>
+  <text x="300" y="125">ETLパイプライン（19種）</text>
+  <text x="300" y="148">SQLエージェント</text>
+  <text x="300" y="171">AI変換（map/filter/reduce）</text>
+  <text x="300" y="194">Webhookワークフロー</text>
+  <text x="300" y="217">データレイク</text>
+  <text x="300" y="240">API接続管理</text>
+
+  <!-- col 3 -->
+  <rect x="520" y="65" width="220" height="200" rx="6" fill="none" stroke="#000" stroke-width="1.5"/>
+  <text x="630" y="90" text-anchor="middle" font-weight="bold">業務管理・承認</text>
+  <line x1="530" y1="100" x2="730" y2="100" stroke="#000" stroke-width="1"/>
+  <text x="540" y="125">承認フロー</text>
+  <text x="540" y="148">ヘルプデスク</text>
+  <text x="540" y="171">ユーザー管理（3ロール）</text>
+  <text x="540" y="194">認証連携（LDAP/OIDC）</text>
+  <text x="540" y="217">監査ログ</text>
+  <text x="540" y="240">ブランディング</text>
+
+  <!-- process labels -->
+  <text x="40" y="300" font-size="12">【対応プロセス】</text>
+  <text x="40" y="320" font-size="12">・共P-05: 総務・人事・給与・労務・教育訓練・法務・情シス・統合業務</text>
+  <text x="40" y="340" font-size="12">・汎P-07: 業種・業務が限定されない生産性向上ツール</text>
+</svg>
