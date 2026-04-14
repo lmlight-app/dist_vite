@@ -2,7 +2,7 @@
 
 **End User License Agreement**
 
-最終更新日: 2025年1月
+最終更新日: 2026年4月
 
 ---
 
@@ -160,7 +160,7 @@
 
 **デジタルベース株式会社**
 - ウェブサイト: https://digital-base.co.jp
-- プロダクトサイト: https://digitalbase.jp
+- プロダクトサイト: https://digital-base.co.jp/lmlight
 
 ---
 
