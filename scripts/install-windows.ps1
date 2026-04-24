@@ -169,7 +169,7 @@ if (Get-Command psql -ErrorAction SilentlyContinue) {
     # pgvector拡張 - 自動インストール
     # PostgreSQL インストールパスを検出
     $PG_DIR = $null
-    $pgVersions = @("17", "16", "15", "14")
+    $pgVersions = @("18", "17", "16", "15", "14")
     foreach ($v in $pgVersions) {
         $candidate = "C:\Program Files\PostgreSQL\$v"
         if (Test-Path "$candidate\bin\psql.exe") {
