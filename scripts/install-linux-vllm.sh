@@ -131,10 +131,40 @@ VLLM_GPU_MEMORY_UTILIZATION_EMBED=0.10
 
 # Additional vLLM arguments (space-separated, passed directly to vllm serve)
 # Examples: --enforce-eager, --enable-prefix-caching, --quantization awq, --dtype half
-#VLLM_REASONING_PARSER=qwen3 
 # VLLM_EXTRA_ARGS_CHAT=--enforce-eager --enable-prefix-caching
 # VLLM_EXTRA_ARGS_EMBED=--enforce-eager
 # VLLM_EXTRA_ARGS_VISION=--enforce-eager
+
+# ------- Reasoning (thinking mode) -------
+# Set to the parser name matching your model. Independent of tool
+# calling — safe to set even when tools are off.
+#   qwen3       — Qwen 3 / 3.5 (thinking-capable)
+#   gemma4      — Gemma 4 (thinking-capable)
+#   deepseek_r1 — DeepSeek R1
+# VLLM_REASONING_PARSER=qwen3
+
+# ------- Tool calling (function calling) -------
+# vLLM auto-detects parser + chat template for most instruction-tuned
+# models via their HuggingFace tokenizer_config.json. Set the flags
+# below only when (a) vLLM doesn't auto-enable tool calling for your
+# model, or (b) you want a non-default parser/template.
+# Bare filenames in --chat-template are resolved against lmlight's
+# bundled templates; use absolute paths for your own .jinja files.
+#
+# NOTE: reasoning parser goes in VLLM_REASONING_PARSER above, NOT here,
+# even if your model uses the same parser name for both (e.g. gemma4).
+#
+# Gemma 4 — HF default template is plain-chat-only, so tool calling
+# needs lmlight's bundled template + the gemma4 parser:
+# VLLM_EXTRA_ARGS_CHAT=--enable-auto-tool-choice --tool-call-parser gemma4 --chat-template tool_chat_template_gemma4.jinja
+#
+# Other families (pick one, matching your model):
+# VLLM_EXTRA_ARGS_CHAT=--enable-auto-tool-choice --tool-call-parser hermes              # Qwen 2.5, Nous/Hermes tunes
+# VLLM_EXTRA_ARGS_CHAT=--enable-auto-tool-choice --tool-call-parser qwen3_xml           # Qwen 3
+# VLLM_EXTRA_ARGS_CHAT=--enable-auto-tool-choice --tool-call-parser llama3_json         # Llama 3.0/3.1
+# VLLM_EXTRA_ARGS_CHAT=--enable-auto-tool-choice --tool-call-parser pythonic            # Llama 3.2/3.3
+# VLLM_EXTRA_ARGS_CHAT=--enable-auto-tool-choice --tool-call-parser llama4_pythonic     # Llama 4
+# VLLM_EXTRA_ARGS_CHAT=--enable-auto-tool-choice --tool-call-parser mistral             # Mistral / Mixtral / Devstral
 
 # =============================================================================
 # Whisper Transcription (GPU auto-detect)
