@@ -18,6 +18,8 @@ ASSETS=(
   "lmlight-vite-macos-arm64.sha256"
   "lmlight-vite-windows-amd64.exe"
   "lmlight-vite-windows-amd64.exe.sha256"
+  "ai-server-installer-windows.exe"
+  "ai-server-installer-windows.exe.sha256"
   # vLLM edition
   "lmlight-vite-vllm-linux-amd64"
   "lmlight-vite-vllm-linux-amd64.sha256"
