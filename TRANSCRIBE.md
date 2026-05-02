@@ -78,7 +78,7 @@ irm https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-transcribe.ps1))) -ModelName large
 ```
 
-インストール後、LM Lightを再起動するとサイドバーに「文字起こし」が表示されます。
+インストール後、DigitalBase を再起動するとサイドバーに「文字起こし」が表示されます。
 
 ## 仕様
 
@@ -95,7 +95,7 @@ irm https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install
 
 ```bash
 # 既存モデル削除
-rm -rf ~/.local/lmlight/models/whisper
+rm -rf ~/.local/db/models/whisper
 
 # 新しいモデルをインストール
 curl -fsSL https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-transcribe.sh | bash -s -- small

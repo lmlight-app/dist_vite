@@ -1,8 +1,8 @@
-# LM Light 料金表
+# DigitalBase 料金表
 
 **Price List**
 
-最終更新日: 2026年3月
+最終更新日: 2026年5月
 
 ---
 

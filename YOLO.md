@@ -40,7 +40,7 @@ curl -fsSL https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/
 curl -fsSL https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-yolo.sh | bash -s -- yolov8x
 ```
 
-インストール後、LM Lightを再起動すると画像処理ページに「物体検出」タブが表示されます。
+インストール後、DigitalBase を再起動すると画像処理ページに「物体検出」タブが表示されます。
 
 ## カスタムモデル
 
@@ -48,14 +48,14 @@ curl -fsSL https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/
 
 ```bash
 # 学習済みモデルを配置
-cp my_custom_model.pt ~/.local/lmlight/models/yolo/
+cp my_custom_model.pt ~/.local/db/models/yolo/
 
 # 複数モデルを配置可能（UIでモデル切替）
-cp defect_detection.pt ~/.local/lmlight/models/yolo/
-cp safety_helmet.pt ~/.local/lmlight/models/yolo/
+cp defect_detection.pt ~/.local/db/models/yolo/
+cp safety_helmet.pt ~/.local/db/models/yolo/
 ```
 
-配置後、LM Lightを再起動するとモデルセレクターに表示されます。
+配置後、DigitalBase を再起動するとモデルセレクターに表示されます。
 
 ## 仕様
 
@@ -72,10 +72,10 @@ cp safety_helmet.pt ~/.local/lmlight/models/yolo/
 
 ```bash
 # 特定のモデルを削除
-rm ~/.local/lmlight/models/yolo/yolov8n.pt
+rm ~/.local/db/models/yolo/yolov8n.pt
 
 # 全モデル削除
-rm -rf ~/.local/lmlight/models/yolo
+rm -rf ~/.local/db/models/yolo
 ```
 
 ## 出力形式

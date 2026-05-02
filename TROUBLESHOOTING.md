@@ -1,5 +1,9 @@
 # トラブルシューティング
 
+> インストール先: `~/.local/db` (Ollama版) / `~/.local/db-vllm` (vLLM版)
+> デフォルトDB: `digitalbase` (ユーザー名・DB名・パスワード共通)
+> 本ドキュメントでは `~/.local/db/.env` を例にしますが、vLLM版の場合は適宜 `~/.local/db-vllm/.env` に読み替えてください。
+
 ## データベース関連
 
 ### テーブル所有者エラー
@@ -18,13 +22,14 @@ ERROR: must be owner of table Message
 
 まず `.env` で設定されているユーザー名・データベース名を確認:
 ```bash
-grep DATABASE_URL ~/.local/lmlight/.env
+grep DATABASE_URL ~/.local/db/.env
 # 形式: postgresql://ユーザー名:パスワード@localhost:5432/データベース名
+# デフォルト: postgresql://digitalbase:digitalbase@localhost:5432/digitalbase
 ```
 
 方法1: テーブル所有者を変更（データ保持）
 ```bash
-# DB_USER, DB_NAME は上記で確認した値に置き換え
+# DB_USER, DB_NAME は上記で確認した値に置き換え (デフォルトは digitalbase)
 sudo -u postgres psql -d <DB_NAME> << 'EOF'
 DO $$
 DECLARE r RECORD;
@@ -102,7 +107,7 @@ EOF
 
 **症状:**
 ```
-ERROR: could not open extension control file "/usr/share/postgresql/16/extension/vector.control": No such file or directory
+ERROR: could not open extension control file "/usr/share/postgresql/17/extension/vector.control": No such file or directory
 ```
 
 **原因:**
@@ -117,11 +122,12 @@ brew install pgvector
 
 Linux (Ubuntu/Debian):
 ```bash
-sudo apt install postgresql-16-pgvector
+# PostgreSQLバージョンに合わせる (PG17推奨)
+sudo apt install postgresql-17-pgvector
 ```
 
 Windows:
-[pgvector Windows インストール手順](https://github.com/pgvector/pgvector#windows)
+インストーラーが自動でセットアップします。手動の場合は [pgvector Windows インストール手順](https://github.com/pgvector/pgvector#windows) を参照。
 
 ---
 
@@ -174,8 +180,6 @@ ollama list
 
 ---
 
----
-
 ## PostgreSQL関連
 
 ### PostgreSQLが起動していない
@@ -189,7 +193,7 @@ ollama list
 
 macOS:
 ```bash
-brew services start postgresql@16
+brew services start postgresql@17
 ```
 
 Linux:
@@ -199,7 +203,7 @@ sudo systemctl enable postgresql  # 自動起動
 ```
 
 Windows:
-サービスマネージャーで「postgresql-x64-16」を起動。
+サービスマネージャーで「postgresql-x64-17」を起動。
 
 ---
 
@@ -222,7 +226,7 @@ sudo -u postgres psql -d <DB_NAME> -c "\dt"
 
 **現在の.env設定確認:**
 ```bash
-grep DATABASE_URL ~/.local/lmlight/.env
+grep DATABASE_URL ~/.local/db/.env
 ```
 
 ※ パスワードはPostgreSQLに暗号化されて保存されているため直接確認できません。忘れた場合はリセットしてください。
@@ -245,7 +249,7 @@ sudo -u postgres psql -c "ALTER USER <DB_USER> WITH PASSWORD '<DB_PASS>';"
 
 `.env` ファイルの `DATABASE_URL` を確認:
 ```bash
-grep DATABASE_URL ~/.local/lmlight/.env
+grep DATABASE_URL ~/.local/db/.env
 # 形式: postgresql://ユーザー名:パスワード@localhost:5432/データベース名
 ```
 
@@ -267,7 +271,7 @@ sudo service postgresql start
 
 または:
 ```bash
-sudo pg_ctlcluster 16 main start
+sudo pg_ctlcluster 17 main start
 ```
 
 ---
@@ -281,7 +285,7 @@ WSLからlocalhostに接続できない。
 
 `pg_hba.conf` を編集:
 ```bash
-sudo nano /etc/postgresql/16/main/pg_hba.conf
+sudo nano /etc/postgresql/17/main/pg_hba.conf
 ```
 
 以下の行を追加/変更:
@@ -312,15 +316,14 @@ Error: listen EADDRINUSE: address already in use :::8000
 ```bash
 # 使用中のプロセスを確認
 lsof -i :8000
-lsof -i :8000
 
 # プロセスを終了
 kill -9 <PID>
 ```
 
-または stop.sh を実行:
+または `db stop` を実行:
 ```bash
-~/.local/lmlight/stop.sh
+db stop
 ```
 
 ---
@@ -329,5 +332,5 @@ kill -9 <PID>
 
 問題が解決しない場合、ログを確認:
 ```bash
-cat ~/.local/lmlight/logs/api.log
+cat ~/.local/db/logs/api.log
 ```

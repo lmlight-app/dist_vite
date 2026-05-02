@@ -1,23 +1,22 @@
-# LM Light システム構成図
+# DigitalBase システム構成図
 
 **System Architecture**
 
-最終更新日: 2026年3月
+最終更新日: 2026年5月
 
 ---
 
 ## システム概要
 
-LM Light は以下のコンポーネントで構成されるオンプレミスAIプラットフォームです。
+DigitalBase は以下のコンポーネントで構成されるオンプレミスAIプラットフォームです。Vite Edition では **API + フロントエンドを単一プロセス・単一ポート (8000)** で配信します（FastAPI が静的ファイルも返却）。
 
 ```mermaid
 graph TB
     subgraph "お客様の環境"
         User["ユーザー<br/>ブラウザ"]
 
-        subgraph "LM Light"
-            Web["Web UI<br/>Vite + React<br/>:8000"]
-            API["API Server<br/>FastAPI (Python)<br/>:8000"]
+        subgraph "DigitalBase (1プロセス)"
+            App["FastAPI (Python)<br/>SPA + REST API<br/>:8000"]
             DB["PostgreSQL 17<br/>+ pgvector<br/>:5432"]
         end
 
@@ -26,7 +25,7 @@ graph TB
             vLLM["vLLM<br/>Chat :8080<br/>Embed :8081"]
         end
 
-        subgraph "オプション"
+        subgraph "オプション機能"
             Whisper["文字起こし<br/>Whisper"]
             YOLO["物体検出<br/>YOLOv8"]
         end
@@ -37,16 +36,22 @@ graph TB
             Azure["Azure AD<br/>OIDC"]
         end
 
-        User -->|HTTPS| Web
-        Web -->|REST API| API
-        API --> DB
-        API -->|推論| Ollama
-        API -->|推論| vLLM
-        API --> Whisper
-        API --> YOLO
-        Web --> Local
-        Web --> AD
-        Web --> Azure
+        subgraph "外部連携 (オプション)"
+            Pipeline["Pipeline 80+ オペレータ<br/>kintone / Slack / S3 / BigQuery 等"]
+            MCP["MCP Server<br/>Claude Desktop / Cursor 連携"]
+        end
+
+        User -->|HTTPS| App
+        App --> DB
+        App -->|推論| Ollama
+        App -->|推論| vLLM
+        App --> Whisper
+        App --> YOLO
+        App --> Local
+        App --> AD
+        App --> Azure
+        App --> Pipeline
+        App --> MCP
     end
 ```
 
@@ -54,35 +59,34 @@ graph TB
 
 ## コンポーネント詳細
 
-### フロントエンド
-
-| 項目 | 内容 |
-|------|------|
-| フレームワーク | Vite + React 19 |
-| ORM | SQLAlchemy 2.0 |
-| 認証 | JWT認証 v5 (next-auth 5.0) |
-| LDAP | ldapts |
-| パスワード | bcryptjs (12ラウンド) |
-| ポート | 3000 |
-
-### APIサーバー
+### フロントエンド + APIサーバー (単一プロセス)
 
 | 項目 | 内容 |
 |------|------|
 | フレームワーク | FastAPI (Python) + uvicorn |
+| 配信形態 | SPA静的ファイル (Vite + React 19 ビルド成果物) を FastAPI 同居配信 |
+| クライアント状態管理 | Zustand + localStorage |
+| 認証 | JWT (HS256) + HTTP-only Cookie |
+| パスワードハッシュ | bcrypt (passlib, 12ラウンド) |
+| LDAP | python-ldap3 |
+| OIDC | python-jose |
 | ORM | SQLAlchemy 2.0+ |
 | ベクトル検索 | pgvector |
 | 文字起こし | pywhispercpp |
 | 物体検出 | ultralytics (YOLOv8) |
 | DXF処理 | ezdxf + opencv-python + pymupdf |
-| ポート | 8000 |
+| ポート | 8000 (API + Web 共通、`API_PORT` で変更可) |
+
+> **Vite Edition 移行に伴い、Next.js 時代の `next-auth` / `bcryptjs` / `ldapts` 等の Node.js 系認証ライブラリは廃止されています。**
 
 ### データベース
 
 | 項目 | 内容 |
 |------|------|
 | DBMS | PostgreSQL 17 |
-| 拡張 | pgvector（ベクトル類似検索） |
+| 拡張 | pgvector（ベクトル類似検索 / HNSW + IVFFlat 対応） |
+| デフォルトDB名 | `digitalbase` |
+| デフォルトユーザー | `digitalbase` |
 | ポート | 5432 |
 
 ### LLMエンジン
@@ -92,11 +96,12 @@ graph TB
 | Ollama | 11434 | macOS / Linux / Windows | 任意（CPU可） |
 | vLLM (Chat) | 8080 | Linux | NVIDIA GPU 必須 |
 | vLLM (Embed) | 8081 | Linux | NVIDIA GPU 必須 |
+| クラウドLLM (オプション) | - | OpenAI / Anthropic / Gemini API への中継も設定可能（`.env` で有効化） | - |
 
 **LLM通信方式:**
 - APIサーバーは **httpx（Python HTTPクライアント）** でLLMエンジンと通信
 - OpenAI SDK は使用せず、`/v1/chat/completions` 等のOpenAI互換エンドポイントに直接HTTPリクエスト
-- Ollama / vLLM いずれもOpenAI互換APIを提供するため、同じコードパスで動作
+- Ollama / vLLM / クラウド (OpenAI 互換) いずれも同じコードパスで動作
 - `VLLM_AUTO_START=false` に設定することで、外部で起動済みのvLLMサーバーにも接続可能
 
 ---
@@ -108,14 +113,14 @@ graph TB
 ```mermaid
 sequenceDiagram
     participant U as ユーザー
-    participant W as Web UI
+    participant App as DigitalBase (FastAPI)
     participant DB as PostgreSQL
 
-    U->>W: ID/パスワード入力
-    W->>DB: ユーザー検索
-    DB-->>W: ユーザー情報 + ハッシュ
-    W->>W: bcrypt 照合
-    W-->>U: JWT発行 (Cookie)
+    U->>App: ID/パスワード入力
+    App->>DB: ユーザー検索
+    DB-->>App: ユーザー情報 + ハッシュ
+    App->>App: bcrypt 照合
+    App-->>U: JWT発行 (Cookie)
 ```
 
 ### LDAP / Active Directory 認証
@@ -123,18 +128,18 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant U as ユーザー
-    participant W as Web UI
+    participant App as DigitalBase (FastAPI)
     participant AD as Active Directory
     participant DB as PostgreSQL
 
-    U->>W: AD ID/パスワード入力
-    W->>AD: LDAP Bind 認証
-    AD-->>W: 認証成功 + 属性情報
-    W->>DB: ユーザー存在確認
+    U->>App: AD ID/パスワード入力
+    App->>AD: LDAP Bind 認証
+    AD-->>App: 認証成功 + 属性情報
+    App->>DB: ユーザー存在確認
     alt 初回ログイン
-        W->>DB: ユーザー自動作成
+        App->>DB: ユーザー自動作成
     end
-    W-->>U: JWT発行 (Cookie)
+    App-->>U: JWT発行 (Cookie)
 ```
 
 ### OIDC / Azure AD 認証
@@ -142,20 +147,20 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant U as ユーザー
-    participant W as Web UI
+    participant App as DigitalBase (FastAPI)
     participant AZ as Azure AD
     participant DB as PostgreSQL
 
-    U->>W: 「Azure AD でログイン」
-    W->>AZ: OAuth2 認証リクエスト
+    U->>App: 「Azure AD でログイン」
+    App->>AZ: OAuth2 認証リクエスト
     AZ->>U: Microsoftログイン画面
     U->>AZ: 認証
-    AZ-->>W: IDトークン
-    W->>DB: ユーザー存在確認
+    AZ-->>App: IDトークン
+    App->>DB: ユーザー存在確認
     alt 初回サインイン
-        W->>DB: ユーザー自動作成
+        App->>DB: ユーザー自動作成
     end
-    W-->>U: JWT発行 (Cookie)
+    App-->>U: JWT発行 (Cookie)
 ```
 
 ---
@@ -167,21 +172,21 @@ sequenceDiagram
 ```mermaid
 graph LR
     Upload["ドキュメント<br/>アップロード"]
-    API["API Server"]
+    App["DigitalBase API"]
     Embed["埋め込みモデル<br/>(Ollama/vLLM)"]
-    PG["PostgreSQL<br/>pgvector"]
+    PG["PostgreSQL<br/>pgvector (HNSW)"]
     LLM["LLMモデル"]
     Response["AI回答"]
 
-    Upload --> API
-    API -->|テキスト抽出| API
-    API -->|ベクトル化| Embed
+    Upload --> App
+    App -->|テキスト抽出| App
+    App -->|ベクトル化| Embed
     Embed -->|埋め込み保存| PG
 
-    Query["ユーザー質問"] --> API
-    API -->|類似検索| PG
-    PG -->|関連文書| API
-    API -->|質問+文書| LLM
+    Query["ユーザー質問"] --> App
+    App -->|類似検索| PG
+    PG -->|関連文書| App
+    App -->|質問+文書| LLM
     LLM --> Response
 ```
 
@@ -191,12 +196,13 @@ graph LR
 
 | サービス | ポート | プロトコル | 備考 |
 |---------|--------|-----------|------|
-| Web UI | 3000 | HTTP | フロントエンド |
-| API Server | 8000 | HTTP | バックエンド |
+| DigitalBase (API + Web) | 8000 | HTTP | 単一プロセス・単一ポート |
 | PostgreSQL | 5432 | TCP | データベース |
 | Ollama | 11434 | HTTP | LLM（Ollama版） |
 | vLLM Chat | 8080 | HTTP | LLM（vLLM版） |
 | vLLM Embed | 8081 | HTTP | 埋め込み（vLLM版） |
+
+> 旧 Next.js 時代に存在した「Web :3000 / API :8000」の2ポート構成は廃止されました。Vite Edition では FastAPI が SPA も配信するため、**外向きに開放するポートは 8000 のみ**です。
 
 ---
 
@@ -208,8 +214,7 @@ graph LR
 
 ```
 1台のサーバー
-├── Web UI (:8000)
-├── API Server (:8000)
+├── DigitalBase (:8000, API + Web 一体)
 ├── PostgreSQL (:5432)
 └── Ollama / vLLM
 ```
@@ -220,7 +225,18 @@ Docker Compose で全コンポーネントをコンテナ化。PostgreSQL も含
 
 ### パターン3: 分散配置
 
-GPUサーバーにLLMエンジン、別サーバーにWeb/API/DBを配置。`.env` でURLを指定して接続。
+GPUサーバーにLLMエンジン、別サーバーに DigitalBase + DB を配置。`.env` で `OLLAMA_BASE_URL` / `VLLM_BASE_URL` を指定して接続。
+
+---
+
+## ネットワークバインド
+
+| 設定 | 影響 |
+|------|------|
+| `API_HOST=0.0.0.0` (デフォルト) | LAN内の他PC・スマホからアクセス可能 |
+| `API_HOST=127.0.0.1` | サーバー本体からのみアクセス可（最もセキュア） |
+
+> インストーラーは利便性を優先して `0.0.0.0` をデフォルトとします。LAN露出を避けたい場合は `~/.local/db/.env` の `API_HOST` を `127.0.0.1` に変更してください。
 
 ---
 

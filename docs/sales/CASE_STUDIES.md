@@ -1,4 +1,4 @@
-# LM Light 導入事例
+# DigitalBase 導入事例
 
 **Case Studies**
 

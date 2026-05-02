@@ -1,44 +1,115 @@
-# LM Light リリースノート
+# DigitalBase リリースノート
 
 **Release Notes**
 
----
-
-## テンプレート
-
-リリースごとに以下の形式で記載してください。
+最終更新日: 2026年5月
 
 ---
 
-### v＿.＿.＿ — 　　年　　月　　日
+## v2.4.0 — 2026年4月20日
 
-#### 新機能
-- ＿＿＿＿
+### 新機能
+- **MCP サーバーを内蔵** — `/api/mcp` JSON-RPC エンドポイントで Claude Desktop / Cursor 等の MCP 対応クライアントから RAG・Pipeline・SQL を直接呼び出し可能に
+- **Pipeline → RAG 自動投入オペレータ** (`load_to_rag`) — Pipeline で取得・加工したデータを Bot にそのままロード（append / replace_all、pipeline_id スコープ）
+- **ExtAPI → MCP ブリッジ** — 保存済み API Connection を `mcpEnabled` フラグでオプトイン公開、外部 MCP クライアントから業務システムを呼び出し
+- DB マイグレーション基盤の刷新
 
-#### 改善
-- ＿＿＿＿
+### 改善
+- Pipeline オペレータ呼び出しに exponential backoff（3回リトライ、429検知）
+- 共有Bot に `runAs` (caller / owner) を追加
+- LDAPグループとタグの自動マッピング（共有ディレクトリ ACL）
 
-#### バグ修正
-- ＿＿＿＿
-
-#### 破壊的変更
-- なし
+### バグ修正
+- Pipeline オペレータの `asyncio.run()` が FastAPI イベントループ内で失敗する問題を修正
+- スキップ理由を詳細化 (`missing_text` / `no_chunks` / `embed_failed` / `insert_failed`)
 
 ---
 
-### v＿.＿.＿ — 　　年　　月　　日
+## v2.3.0 — 2026年4月3日
 
-#### 新機能
-- ＿＿＿＿
+### 新機能
+- **型変換オペレータ** (`transform_cast`) — integer / float / boolean / date / datetime / string、日付4フォーマット自動検出
+- **Web 検索 RAG** — DuckDuckGo / SearXNG 対応、`.env` + ユーザー設定の二段階トグル
+- Pipeline オペレータ追加で **80以上**に到達
 
-#### 改善
-- ＿＿＿＿
+### 改善
+- **クラウドLLM 対応強化** — OpenAI o1/o3/o4 系・GPT-5 系 reasoning model を自動検出、`max_completion_tokens` / `developer` ロールに自動切替
+- Pipeline UI を n8n パターンへ刷新 — ノード表示、ステップ ID 保持、プレビュー Table/JSON 切替、FileBrowser のドラッグ＆ドロップ・タブ・パンくず
+- Tool Calling 基盤を chat / pipeline で分離
 
-#### バグ修正
-- ＿＿＿＿
+### ドキュメント
+- 製品名を **DigitalBase** に統一（旧名 LM Light）
 
-#### 破壊的変更
-- なし
+---
+
+## v2.2.0 — 2026年4月1日〜2日
+
+### 新機能
+- **Pipeline オペレータを8 → 19に拡張**:
+  - 変換系: filter / set_fields / sort / split / aggregate / merge / cast
+  - フロー制御: IF / Switch / Loop（複数出力ハンドル、合流、ループ）
+  - アクション: send_email (SMTP/TLS) / RSS source
+- **ReactFlow キャンバス改修** — ノード間ドラッグ接続、ノード自由配置、エッジ保存、Backspace 削除
+- **クラウドLLM 標準対応** — OpenAI 11モデル / Anthropic 5モデル / Gemini 3モデル、httpx ストリーミング（SDK 不使用）
+
+### 改善
+- パイプラインエンジンを **直列 + グラフ走査** の二重実行に（edges 未設定時は従来の直列、設定時は BFS でフロー制御）
+- ステップ追加ダイアログを5カテゴリ・2段階Selectに整理
+
+---
+
+## v2.1.0 — 2026年4月1日
+
+### 新機能
+- **LDAP/AD 属性の保存** — `User.ldapAttributes` (JSONB) に LDAP の30+属性を丸ごと保持。ログイン毎に最新属性で上書き、社員番号・資産番号等を `extensionAttribute1〜15` で柔軟に保持
+- **管理画面リファクタリング** — 「管理者設定」(ADMIN only、別タブ) と「共有管理」(SUPER + ADMIN) を分離
+
+### 改善
+- `protected-route.tsx` の `adminOnly` を厳密化（旧版では SUPER も通過していた）
+- `adminOrSuper` ガードを新設
+
+---
+
+## v2.0.0 — Vite Edition (Major)
+
+### 破壊的変更
+- **Next.js → Vite + FastAPI 単一プロセス構成に移行**
+  - 旧: Node.js (Next.js SSR + API Routes) + Python (FastAPI) の2プロセス
+  - 新: Python (FastAPI) が SPA 静的ファイルも配信する1プロセス
+  - **Node.js が不要になり、配布バイナリ1つで起動可能**
+- 認証ライブラリを置換: `next-auth` → `python-jose` (JWT) / `bcryptjs` → `passlib` / `ldapts` → `python-ldap3`
+- ORM を `Prisma` (Node.js) + `SQLAlchemy` (Python) のハイブリッドから **SQLAlchemy 単一**へ
+- ポート構成を変更: 旧「Web :3000 + API :8000」→ 新「:8000 単一」
+- インストール先を `~/.local/lmlight` → `~/.local/db` に変更
+- CLI を `lmlight start/stop` → `db start/stop` に変更
+- DB 名・ユーザー・パスワードを `lmlight` → `digitalbase` に変更
+
+### 新機能
+- **Document Creator** — テンプレートからのドキュメント自動生成
+- **Helpdesk** モジュール — 社内問い合わせの起票・割当・ステータス管理
+- **Pipeline** — 業務自動化エンジン（初期8オペレータ）
+- **承認フロー** — 多段階承認、Webhook 通知、ファイル添付
+
+### 移行
+- 旧バージョン (LM Light) からは pg_dump / pg_restore でデータ移行可能（[DBTRANSITION.md](../../DBTRANSITION.md) 参照）
+
+---
+
+## 補足: vLLM Edition の Nightly 対応 (2026-03-02)
+
+DGX Spark (GB10) 環境向けに vLLM を Nightly ビルドにアップデート。Qwen3.5-35B-A3B (`qwen3_5_moe` アーキテクチャ) のロード対応:
+
+```bash
+uv pip install -U vllm --pre \
+  --extra-index-url https://wheels.vllm.ai/nightly/cu130 \
+  --extra-index-url https://download.pytorch.org/whl/cu130 \
+  --index-strategy unsafe-best-match
+```
+
+| パッケージ | Before | After |
+|---|---|---|
+| vllm | 0.16.0 | 0.16.1rc1.dev127 |
+| torch | 2.9.1 | 2.10.0 |
 
 ---
 
@@ -48,17 +119,17 @@
 
 **macOS:**
 ```bash
-curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/scripts/install-macos.sh | bash
+curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-macos.sh | bash
 ```
 
 **Linux:**
 ```bash
-curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/scripts/install-linux.sh | bash
+curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-linux.sh | bash
 ```
 
 **Windows:**
 ```powershell
-irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/scripts/install-windows.ps1 | iex
+irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-windows.ps1 | iex
 ```
 
 ---

@@ -2,7 +2,7 @@
 
 **End User License Agreement**
 
-最終更新日: 2026年4月
+最終更新日: 2026年5月
 
 ---
 
@@ -75,7 +75,7 @@
 
 ## 第6条（Cloud LLM連携機能）
 
-1. 本ソフトウェアには、外部クラウドLLMサービス（GPT-5.4、Claude 4.6、Gemini 2.5等）へ接続する機能（以下「Cloud LLM連携機能」）が含まれます。
+1. 本ソフトウェアには、外部クラウドLLMサービス（OpenAI / Anthropic / Google Gemini 等）へ接続する機能（以下「Cloud LLM連携機能」）が含まれます。
 2. Cloud LLM連携機能の利用にあたり、ライセンシーは自らの責任において各クラウドLLMプロバイダーのAPIキーを取得し、当該プロバイダーの利用規約を遵守するものとします。
 3. Cloud LLM連携機能を通じて外部に送信されるデータについて、当社は一切の責任を負いません。
 4. 各クラウドLLMプロバイダーの利用料金は、ライセンシーが直接当該プロバイダーに支払うものであり、本ソフトウェアのライセンス料金には含まれません。
@@ -159,6 +159,7 @@
 ライセンスに関するお問い合わせ：
 
 **デジタルベース株式会社**
+- メール: info@digital-base.co.jp
 - ウェブサイト: https://digital-base.co.jp
 - プロダクトサイト: https://digital-base.co.jp/lmlight
 
@@ -168,4 +169,4 @@
 
 ---
 
-Copyright © 2025 デジタルベース株式会社 All rights reserved.
+Copyright (c) 2026 デジタルベース株式会社 All rights reserved.
