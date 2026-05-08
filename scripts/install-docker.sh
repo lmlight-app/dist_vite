@@ -4,7 +4,7 @@
 set -e
 
 DOCKER_USER="lmlight"
-IMAGE="$DOCKER_USER/lmlight-vite:latest"
+IMAGE="$DOCKER_USER/digitalbase-ollama:1"
 CONTAINER_NAME="db"
 
 echo "🚀 Installing LM Light (Docker - Ollama Edition)"

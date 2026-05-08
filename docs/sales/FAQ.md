@@ -19,7 +19,8 @@
 ### Q. 対応OSは？
 - **Ollama版**: macOS / Linux / Windows
 - **vLLM版**: Linux のみ（NVIDIA GPU必須）
-- **Docker版**: Docker が動作するすべての環境
+- **Docker版**: Docker が動作するすべての環境 (`linux/amd64` + `linux/arm64`)
+- **Kubernetes版**: Helm chart / Kustomize マニフェスト同梱、3 モード対応 (クラスタ内 GPU / 外部 GPU / マネージド推論 API)
 
 ### Q. 既存のvLLMサーバーに接続できますか？
 はい。`.env` で `VLLM_AUTO_START=false` にして、`VLLM_BASE_URL` を既存のvLLMサーバーに向ければ動きます。APIはhttpxで `/v1/chat/completions` 等のOpenAI互換エンドポイントに直接リクエストを投げるため、自前で起動したvLLMでも外部のvLLMでも問題ありません。

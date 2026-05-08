@@ -221,11 +221,23 @@ graph LR
 
 ### パターン2: Docker Compose
 
-Docker Compose で全コンポーネントをコンテナ化。PostgreSQL も含まれるため個別インストール不要。
+Docker Compose で全コンポーネントをコンテナ化。PostgreSQL も含まれるため個別インストール不要。イメージは `lmlight/digitalbase-ollama:1` / `lmlight/digitalbase-vllm:1` (`linux/amd64` + `linux/arm64`)。
 
 ### パターン3: 分散配置
 
 GPUサーバーにLLMエンジン、別サーバーに DigitalBase + DB を配置。`.env` で `OLLAMA_BASE_URL` / `VLLM_BASE_URL` を指定して接続。
+
+### パターン4: Kubernetes (Helm / Kustomize)
+
+本番・複数ノード・HA 構成向け。GPU 配置によって 3 モードから選択。
+
+| モード | GPU 配置 | 特徴 |
+|---|---|---|
+| `vllm-in-cluster` | クラスタ内 GPU ノード | `nvidia.com/gpu` ラベル必須 |
+| `vllm-external` | クラスタ外 GPU マシン | 既存 GPU 資産活用 |
+| `vllm-managed` | マネージド推論 API | GPU インフラ不要、OpenAI 互換 |
+
+Helm chart は `deploy/helm/digitalbase`、Kustomize マニフェストは `deploy/k8s/`。詳細は `deploy/PARTNER-GUIDE.md` を参照。
 
 ---
 
