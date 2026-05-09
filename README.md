@@ -1,6 +1,6 @@
 # DigitalBase 利用マニュアル
 
-> Node.js不要。バイナリ1つでAPI + フロントエンドが動作します。
+
 
 ## Ollamaバージョン
 
@@ -33,8 +33,6 @@ irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-win
 ## 環境構築 (インストール前に実行)
 
 ### 必要な依存関係
-
-> **Note:** Vite EditionではNode.jsは不要です。
 
 #### macOS
 
