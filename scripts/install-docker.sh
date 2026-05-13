@@ -1,6 +1,9 @@
 #!/bin/bash
-# LM Light — Docker Installation (Ollama Edition)
+# DigitalBase — Docker Installation (Ollama Edition)
 # Usage: curl -fsSL https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-docker.sh | bash
+#
+# 手動セットアップする場合は templates/example.env を参照:
+#   https://github.com/lmlight-app/dist_vite/blob/main/templates/example.env
 set -e
 
 DOCKER_USER="lmlight"
@@ -35,14 +38,23 @@ mkdir -p "$DATA_DIR"
 # Generate JWT secret if not exists
 if [ ! -f "$DATA_DIR/.env" ]; then
     JWT_SECRET=$(openssl rand -hex 32)
+    OAUTH_KEY=$(openssl rand -hex 32)
     cat > "$DATA_DIR/.env" <<EOF
 DATABASE_URL=postgresql://digitalbase:digitalbase@host.docker.internal:5432/digitalbase
 OLLAMA_BASE_URL=http://host.docker.internal:11434
 JWT_SECRET=$JWT_SECRET
+OAUTH_ENCRYPTION_KEY=$OAUTH_KEY
 AUTH_MODE=local
 EOF
+    chmod 600 "$DATA_DIR/.env"
     echo "📝 Created $DATA_DIR/.env"
     echo "   Edit this file to configure database and Ollama settings."
+fi
+
+# License file check (なくても起動はする、ただし API は 403 を返す)
+if [ ! -f "$DATA_DIR/license.lic" ]; then
+    echo "⚠️  License file not found at $DATA_DIR/license.lic"
+    echo "   Place your license file there to activate the API."
 fi
 
 # Setup database

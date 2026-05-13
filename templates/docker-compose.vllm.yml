@@ -1,0 +1,41 @@
+# =============================================================================
+# DigitalBase — Docker Compose (vLLM Edition, GPU 必須)
+# =============================================================================
+# 前提:
+#   - NVIDIA GPU + NVIDIA Container Toolkit インストール済
+#   - host マシンで Postgres (5432) が動作している
+#   - .env を同じディレクトリに配置 (templates/example-vllm.env からコピー)
+#
+# 起動:
+#   docker compose -f docker-compose.vllm.yml up -d
+#
+# モデルキャッシュは host の ~/.cache/huggingface に保存され、コンテナ間で共有可。
+# =============================================================================
+
+services:
+  api:
+    image: lmlight/digitalbase-vllm:1
+    container_name: db-vllm
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ${HOME}/.cache/huggingface:/root/.cache/huggingface   # モデルキャッシュ共有
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s     # vLLM 起動 + モデルロードに時間かかる

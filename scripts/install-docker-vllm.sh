@@ -1,10 +1,13 @@
 #!/bin/bash
-# LM Light — Docker Installation (vLLM Edition)
+# DigitalBase — Docker Installation (vLLM Edition)
 # Usage: curl -fsSL https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-docker-vllm.sh | bash
+#
+# 手動セットアップする場合は templates/example-vllm.env を参照:
+#   https://github.com/lmlight-app/dist_vite/blob/main/templates/example-vllm.env
 set -e
 
 DOCKER_USER="lmlight"
-IMAGE="$DOCKER_USER/lmlight-vllm-vite:latest"
+IMAGE="$DOCKER_USER/digitalbase-vllm:1"
 CONTAINER_NAME="db-vllm"
 
 echo "🚀 Installing LM Light (Docker - vLLM Edition)"
@@ -41,12 +44,14 @@ mkdir -p "$DATA_DIR"
 # Generate JWT secret if not exists
 if [ ! -f "$DATA_DIR/.env" ]; then
     JWT_SECRET=$(openssl rand -hex 32)
+    OAUTH_KEY=$(openssl rand -hex 32)
     cat > "$DATA_DIR/.env" <<EOF
 DATABASE_URL=postgresql://digitalbase:digitalbase@host.docker.internal:5432/digitalbase
 VLLM_BASE_URL=http://localhost:8080
 VLLM_EMBED_BASE_URL=http://localhost:8081
 VLLM_AUTO_START=true
 JWT_SECRET=$JWT_SECRET
+OAUTH_ENCRYPTION_KEY=$OAUTH_KEY
 AUTH_MODE=local
 
 # ------- Reasoning (thinking mode) -------
@@ -80,7 +85,14 @@ AUTH_MODE=local
 # VLLM_EXTRA_ARGS_CHAT="--enable-auto-tool-choice --tool-call-parser llama4_pythonic"     # Llama 4
 # VLLM_EXTRA_ARGS_CHAT="--enable-auto-tool-choice --tool-call-parser mistral"             # Mistral / Mixtral / Devstral
 EOF
+    chmod 600 "$DATA_DIR/.env"
     echo "📝 Created $DATA_DIR/.env"
+fi
+
+# License file check
+if [ ! -f "$DATA_DIR/license.lic" ]; then
+    echo "⚠️  License file not found at $DATA_DIR/license.lic"
+    echo "   Place your license file there to activate the API."
 fi
 
 # Setup database

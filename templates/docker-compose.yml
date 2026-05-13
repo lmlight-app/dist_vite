@@ -1,0 +1,36 @@
+# =============================================================================
+# DigitalBase — Docker Compose (Ollama Edition)
+# =============================================================================
+# 前提:
+#   - host マシンで Postgres (5432) と Ollama (11434) が動作している
+#   - .env を同じディレクトリに配置 (templates/example.env からコピー)
+#
+# 起動:
+#   docker compose up -d
+#
+# ログ:
+#   docker compose logs -f api
+#
+# 更新:
+#   docker compose pull && docker compose up -d
+# =============================================================================
+
+services:
+  api:
+    image: lmlight/digitalbase-ollama:1
+    container_name: db
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data        # license.lic + その他データ永続化
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # Linux で host.docker.internal を解決可に
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
