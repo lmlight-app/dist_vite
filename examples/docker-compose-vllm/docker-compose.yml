@@ -1,0 +1,107 @@
+# DigitalBase – vLLM Edition full stack
+#
+# Brings up everything for a single-host GPU deployment:
+#   • postgres   (with pgvector extension auto-initialized)
+#   • whisper    (audio transcription)
+#   • vllm-chat  (LLM chat inference, NVIDIA GPU)
+#   • vllm-embed (embedding model for RAG)
+#   • api        (DigitalBase API + UI on port 8000)
+#
+# Prerequisites:
+#   • Docker 20.10+ with docker compose v2
+#   • NVIDIA GPU with CUDA 12+ + nvidia-container-toolkit
+#   • license.lic in this directory
+#   • .env edited from .env.example
+#
+# Usage:
+#   cp .env.example .env
+#   # edit .env (DB password, JWT_SECRET, model selection, etc.)
+#   cp /path/to/license.lic .
+#   docker compose up -d
+#   docker compose logs -f       # watch first-time model download (~10GB)
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-digitalbase}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-digitalbase}
+      POSTGRES_DB: ${POSTGRES_DB:-digitalbase}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init-pgvector.sql:/docker-entrypoint-initdb.d/init-pgvector.sql:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER:-digitalbase}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  whisper:
+    image: onerahmet/openai-whisper-asr-webservice:latest
+    environment:
+      ASR_MODEL: ${ASR_MODEL:-base}        # tiny | base | small | medium | large
+      ASR_ENGINE: openai_whisper
+    restart: unless-stopped
+
+  # vLLM chat (LLM inference)
+  vllm-chat:
+    image: vllm/vllm-openai:latest
+    command:
+      - --model=${VLLM_CHAT_MODEL:-google/gemma-4-E2B-it}
+      - --max-model-len=${VLLM_MAX_MODEL_LEN:-4096}
+      - --gpu-memory-utilization=${VLLM_GPU_MEM_CHAT:-0.55}
+    volumes:
+      # Share host's HF cache so models aren't re-downloaded on rebuild.
+      - ${HF_HOME:-${HOME}/.cache/huggingface}:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - { driver: nvidia, count: 1, capabilities: [gpu] }
+    restart: unless-stopped
+
+  # vLLM embedding (RAG / pgvector)
+  vllm-embed:
+    image: vllm/vllm-openai:latest
+    command:
+      - --model=${VLLM_EMBED_MODEL:-google/embeddinggemma-300m}
+      - --task=embed
+      - --max-model-len=2048
+      - --gpu-memory-utilization=${VLLM_GPU_MEM_EMBED:-0.35}
+    volumes:
+      - ${HF_HOME:-${HOME}/.cache/huggingface}:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - { driver: nvidia, count: 1, capabilities: [gpu] }
+    restart: unless-stopped
+
+  api:
+    image: lmlight/digitalbase-vllm:${IMAGE_TAG:-1}
+    env_file: .env
+    environment:
+      # Override env_file values so in-compose service names always win
+      DATABASE_URL: postgresql://${POSTGRES_USER:-digitalbase}:${POSTGRES_PASSWORD:-digitalbase}@postgres:5432/${POSTGRES_DB:-digitalbase}
+      WHISPER_API_URL: http://whisper:9000
+      VLLM_BASE_URL: http://vllm-chat:8000
+      VLLM_EMBED_BASE_URL: http://vllm-embed:8000
+      VLLM_AUTO_START: "false"
+    volumes:
+      - ./license.lic:/app/data/license.lic:ro
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      whisper:
+        condition: service_started
+      vllm-chat:
+        condition: service_started
+      vllm-embed:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  pgdata:

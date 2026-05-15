@@ -323,6 +323,25 @@ Docker Hub で公開。API + UI を 1 コンテナに同梱、`linux/amd64` / `l
 | `1`     | マイナー追従 | 互換確認 |
 | `latest`| 全追従 | 開発・お試し |
 
+### 推奨: 動作確認済みの compose レシピを使う
+
+`examples/` に **動作確認済み・コピペ不要** のフルスタック compose を同梱しています：
+
+```bash
+git clone https://github.com/lmlight-app/dist_vite.git
+cd dist_vite/examples/docker-compose-vllm   # または docker-compose-ollama
+cp .env.example .env && nano .env
+cp /path/to/license.lic .
+docker compose up -d
+```
+
+各 README に GPU 設定・モデル選択・トラブルシューティングなど詳細あり：
+
+- [`examples/docker-compose-vllm/`](examples/docker-compose-vllm/) — vLLM 版（GPU 必須、フルスタック）
+- [`examples/docker-compose-ollama/`](examples/docker-compose-ollama/) — Ollama 版（軽量、host で Ollama）
+
+以下は最小構成の `docker run` パターン（compose が嫌な場合のみ）。
+
 ### Ollama版
 
 ```bash

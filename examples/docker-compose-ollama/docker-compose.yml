@@ -1,0 +1,66 @@
+# DigitalBase – Ollama Edition
+#
+# Brings up:
+#   • postgres   (with pgvector)
+#   • whisper    (audio transcription)
+#   • api        (DigitalBase API + UI on port 8000)
+#
+# Ollama itself runs on the HOST (not in this compose), so the API
+# reaches it via http://host.docker.internal:11434. Install Ollama
+# separately from https://ollama.com .
+#
+# Usage:
+#   cp .env.example .env
+#   cp /path/to/license.lic .
+#   # Make sure Ollama is running on the host:
+#   #   ollama serve &
+#   #   ollama pull gemma3:4b
+#   #   ollama pull nomic-embed-text
+#   docker compose up -d
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-digitalbase}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-digitalbase}
+      POSTGRES_DB: ${POSTGRES_DB:-digitalbase}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init-pgvector.sql:/docker-entrypoint-initdb.d/init-pgvector.sql:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER:-digitalbase}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  whisper:
+    image: onerahmet/openai-whisper-asr-webservice:latest
+    environment:
+      ASR_MODEL: ${ASR_MODEL:-base}
+      ASR_ENGINE: openai_whisper
+    restart: unless-stopped
+
+  api:
+    image: lmlight/digitalbase-ollama:${IMAGE_TAG:-1}
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-digitalbase}:${POSTGRES_PASSWORD:-digitalbase}@postgres:5432/${POSTGRES_DB:-digitalbase}
+      WHISPER_API_URL: http://whisper:9000
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+    volumes:
+      - ./license.lic:/app/data/license.lic:ro
+    ports:
+      - "${API_PORT:-8000}:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # ホストの Ollama 到達用
+    depends_on:
+      postgres:
+        condition: service_healthy
+      whisper:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  pgdata:
