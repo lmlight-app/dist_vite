@@ -245,7 +245,6 @@ $p = [Environment]::GetEnvironmentVariable("Path", "User") -split ";" | Where-Ob
 ├── license.lic            # ライセンス (Hardware UUIDベース)
 ├── start.sh               # 起動
 ├── stop.sh                # 停止
-└── logs/                  # ログ
 ```
 
 ---
@@ -269,7 +268,6 @@ curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/inst
 | FFmpeg (文字起こし用) | `sudo apt install ffmpeg` |
 | Tesseract OCR | `sudo apt install tesseract-ocr tesseract-ocr-jpn` |
 
-> **Note:** Node.js は不要です。NVIDIA GPU + CUDA 12.x 以上が必要です。
 
 **pgvector:**
 
@@ -325,7 +323,7 @@ Docker Hub で公開。API + UI を 1 コンテナに同梱、`linux/amd64` / `l
 
 ### 推奨: 動作確認済みの compose レシピを使う
 
-`examples/` に **動作確認済み・コピペ不要** のフルスタック compose を同梱しています：
+フルスタック compose は別途資料としてご用意ありますので、お申し付けください。
 
 ```bash
 git clone https://github.com/lmlight-app/dist_vite.git
@@ -334,11 +332,6 @@ cp .env.example .env && nano .env
 cp /path/to/license.lic .
 docker compose up -d
 ```
-
-各 README に GPU 設定・モデル選択・トラブルシューティングなど詳細あり：
-
-- [`examples/docker-compose-vllm/`](examples/docker-compose-vllm/) — vLLM 版（GPU 必須、フルスタック）
-- [`examples/docker-compose-ollama/`](examples/docker-compose-ollama/) — Ollama 版（軽量、host で Ollama）
 
 以下は最小構成の `docker run` パターン（compose が嫌な場合のみ）。
 
@@ -380,7 +373,7 @@ docker run -d \
   lmlight/digitalbase-vllm:1
 ```
 
-> **Note:** `docker run` 単体では vLLM は別途自分で起動する必要があります（API は `VLLM_BASE_URL` を見に行くだけ）。フルスタックで一発起動したいなら次節の compose を使ってください。
+> **Note:** `docker run` 単体では vLLM は別途自分で起動する必要があります（API は `VLLM_BASE_URL` を見に行くだけ）。フルスタックで一発起動したい場合は、次節の compose を使ってください。
 
 ### フルスタックで一発起動 (docker-compose)
 
@@ -504,20 +497,10 @@ docker pull lmlight/digitalbase-ollama:1 && docker restart db     # アップデ
 - アクセス: http://localhost:8000
 - 初回ログイン: `admin@local` / `admin123`
 
-> **Note:** フロントエンドコンテナは不要、API コンテナ 1 つで完結。
-
-### 旧イメージ名から移行
-
-| 旧 | 新 |
-|---|---|
-| `lmlight/lmlight-vite:latest` | `lmlight/digitalbase-ollama:1` |
-| `lmlight/lmlight-vllm-vite:latest` | `lmlight/digitalbase-vllm:1` |
-
-設定値・データ互換性あり、イメージ名差し替えで移行可。
 
 ---
 
-## Kubernetes版 (Helm / Kustomize)
+## Kubernetes版 (Helm / Kustomize) (ベータ版)
 
 本番・複数ノード・HA 構成向け。GPU 配置によって 3 モードから選択。
 
@@ -572,8 +555,6 @@ deploy/
         ├── vllm-external/
         └── vllm-managed/
 ```
-
-詳細は配布パッケージ内の [PARTNER-GUIDE.md](deploy/PARTNER-GUIDE.md) を参照。
 
 ### システム要件 (Pod ごとの目安)
 
