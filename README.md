@@ -335,14 +335,14 @@ docker run -d \
   -e OLLAMA_BASE_URL=http://host.docker.internal:11434 \
   -e JWT_SECRET=$(openssl rand -hex 32) \
   -e AUTH_MODE=local \
-  -v ~/.local/db/license.lic:/app/license.lic:ro \
+  -v ~/.local/db/license.lic:/app/data/license.lic:ro \
   --restart unless-stopped \
   lmlight/digitalbase-ollama:1
 ```
 
 ### vLLM版（GPU）
 
-vLLM サーバー本体はコンテナ外で運用 (GPU メモリ制御が容易)。コンテナは API だけ。
+vLLM サーバーは別コンテナで起動（GPU は `nvidia-container-toolkit` 経由でマウント）。下の **docker-compose 構成**を推奨。スタンドアロン `docker run` のみで API だけ立てたい場合：
 
 ```bash
 docker pull lmlight/digitalbase-vllm:1
@@ -356,12 +356,17 @@ docker run -d \
   -e VLLM_AUTO_START=false \
   -e JWT_SECRET=$(openssl rand -hex 32) \
   -e AUTH_MODE=local \
-  -v ~/.local/db-vllm/license.lic:/app/license.lic:ro \
+  -v ~/.local/db-vllm/license.lic:/app/data/license.lic:ro \
   --restart unless-stopped \
   lmlight/digitalbase-vllm:1
 ```
 
-### Postgres / Whisper も一緒に起動 (docker-compose)
+> **Note:** `docker run` 単体では vLLM は別途自分で起動する必要があります（API は `VLLM_BASE_URL` を見に行くだけ）。フルスタックで一発起動したいなら次節の compose を使ってください。
+
+### フルスタックで一発起動 (docker-compose)
+
+`docker compose up -d` で **API + Postgres + Whisper + vLLM (chat/embed)** が同時起動します。
+GPU は `nvidia-container-toolkit` 経由で自動マウント。
 
 ```yaml
 services:
@@ -371,7 +376,10 @@ services:
       POSTGRES_USER: digitalbase
       POSTGRES_PASSWORD: digitalbase
       POSTGRES_DB: digitalbase
-    volumes: [pgdata:/var/lib/postgresql/data]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # 起動時に digitalbase DB に pgvector 拡張を有効化
+      - ./init-pgvector.sql:/docker-entrypoint-initdb.d/init-pgvector.sql:ro
     restart: unless-stopped
 
   whisper:
@@ -382,19 +390,58 @@ services:
     ports: ["9000:9000"]
     restart: unless-stopped
 
+  # ── vLLM chat 推論サーバー (vLLM 版のときだけ。Ollama 版は削除) ──
+  vllm-chat:
+    image: vllm/vllm-openai:latest
+    command:
+      - --model=google/gemma-4-E2B-it
+      - --max-model-len=4096
+      - --gpu-memory-utilization=0.55
+    volumes:
+      - ${HOME}/.cache/huggingface:/root/.cache/huggingface   # モデル DL キャッシュ共有
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - { driver: nvidia, count: 1, capabilities: [gpu] }
+    restart: unless-stopped
+
+  # ── vLLM embedding サーバー (RAG / pgvector 用) ──
+  vllm-embed:
+    image: vllm/vllm-openai:latest
+    command:
+      - --model=google/embeddinggemma-300m
+      - --task=embed
+      - --max-model-len=2048
+      - --gpu-memory-utilization=0.35
+    volumes:
+      - ${HOME}/.cache/huggingface:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - { driver: nvidia, count: 1, capabilities: [gpu] }
+    restart: unless-stopped
+
   api:
     image: lmlight/digitalbase-vllm:1   # Ollama 版なら lmlight/digitalbase-ollama:1
     env_file: .env
     volumes:
-      - ./license.lic:/app/license.lic:ro
+      - ./license.lic:/app/data/license.lic:ro
     ports: ["8000:8000"]
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    depends_on: [postgres, whisper]
+    depends_on: [postgres, whisper, vllm-chat, vllm-embed]   # Ollama 版は vllm-* を消す
     restart: unless-stopped
 
 volumes:
   pgdata:
+```
+
+**`init-pgvector.sql` を同じディレクトリに作成** (pgvector 拡張の初期化):
+
+```sql
+CREATE EXTENSION IF NOT EXISTS vector;
 ```
 
 最小 `.env`:
@@ -405,20 +452,26 @@ WHISPER_API_URL=http://whisper:9000
 JWT_SECRET=change-me-to-random-secret
 AUTH_MODE=local
 
-# vLLM 版
-VLLM_BASE_URL=http://host.docker.internal:8080
-VLLM_EMBED_BASE_URL=http://host.docker.internal:8081
+# vLLM 版 — 同じ compose 内の vllm-chat / vllm-embed Service を参照
+VLLM_BASE_URL=http://vllm-chat:8000
+VLLM_EMBED_BASE_URL=http://vllm-embed:8000
 VLLM_AUTO_START=false
+VLLM_CHAT_MODEL=google/gemma-4-E2B-it
+VLLM_EMBED_MODEL=google/embeddinggemma-300m
 
-# Ollama 版は VLLM_* を消して以下を追加
+# Ollama 版は VLLM_* を消して以下を追加 (host で起動した Ollama を参照)
 # OLLAMA_BASE_URL=http://host.docker.internal:11434
 ```
 
 ```bash
-docker compose up -d      # 起動
+docker compose up -d      # 起動（初回は vLLM のモデル DL に数分かかります）
 docker compose logs -f    # ログ確認
 docker compose down       # 停止
 ```
+
+> **GPU が無い場合**: vLLM 版は使えません。Ollama 版に切替えるか、Modal / RunPod 等のマネージド推論 API を `VLLM_BASE_URL` に指定してください。
+
+> **`docker compose ps` で vllm-chat が "unhealthy" になる**: 初回起動はモデル DL + ロードで 1〜3 分かかります。`docker compose logs vllm-chat` で進捗確認。完了するまで `api` の `/health` も 503 を返します。
 
 ### 操作
 
@@ -534,3 +587,12 @@ vLLM の VRAM 目安:
 | 推奨配備 | **Docker / K8s** | バイナリ単体 (1 ノード) |
 
 > **K8s / Docker 配備は Subscription 推奨**: Pod 再スケジュール / スケールアウトで Hardware UUID が変動するため、Perpetual だと構成上の制約大。Subscription なら任意ノードで起動可、ローリングアップデートも問題なし。
+
+#### Docker でのライセンス mount
+
+```yaml
+volumes:
+  - ./license.lic:/app/data/license.lic:ro   # ← コンテナ内のパスは /app/data/license.lic
+```
+
+> ⚠️ コンテナ内パスは `/app/license.lic` ではなく **`/app/data/license.lic`**。間違えると「License required」エラーで 403 拒否されます。
