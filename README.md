@@ -595,4 +595,4 @@ volumes:
   - ./license.lic:/app/data/license.lic:ro   # ← コンテナ内のパスは /app/data/license.lic
 ```
 
-> ⚠️ コンテナ内パスは `/app/license.lic` ではなく **`/app/data/license.lic`**。間違えると「License required」エラーで 403 拒否されます。
+コンテナ内パスは `/app/license.lic` ではなく **`/app/data/license.lic`**。間違えると「License required」エラーで 403 拒否されます。
