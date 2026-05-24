@@ -78,7 +78,6 @@ winget install PostgreSQL.PostgreSQL.17 Ollama.Ollama Gyan.FFmpeg UB-Mannheim.Te
 
 インストーラーは **DB ユーザー / データベース / pgvector 拡張** だけを作成します (= superuser でないと作れないため)。
 スキーマ・テーブル・インデックス・初期管理ユーザーは **バックエンド初回起動時に自動作成**されます (= 冪等)。
-
 アップデート時も既存データは保持されます。
 
 #### 手動セットアップが必要なケース

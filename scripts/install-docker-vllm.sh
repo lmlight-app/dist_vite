@@ -95,9 +95,40 @@ if [ ! -f "$DATA_DIR/license.lic" ]; then
     echo "   Place your license file there to activate the API."
 fi
 
-# Setup database
-echo "🗄️ Setting up database..."
-curl -fsSL https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/db_setup.sh | bash
+# ── DB bootstrap (= ホスト側 Postgres に user/DB/extension 作成) ────────────
+# schema / table / index / column / 初期 admin は container 起動後 migrations.py
+# が冪等に作成する。psql コマンドはホストの postgres で実行。
+echo "🗄️ Setting up database (bootstrap only)..."
+DB_USER="digitalbase"
+DB_PASS="digitalbase"
+DB_NAME="digitalbase"
+
+if ! command -v psql &>/dev/null; then
+    echo "❌ PostgreSQL がインストールされていません (= host 側に必要)。"
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        echo "   brew install postgresql@16 && brew services start postgresql@16"
+    else
+        echo "   sudo apt install postgresql && sudo systemctl start postgresql"
+    fi
+    exit 1
+fi
+if ! pg_isready -q 2>/dev/null; then
+    echo "❌ PostgreSQL に接続できません (host:5432)。起動してから再実行してください。"
+    exit 1
+fi
+
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    PSQL_ADMIN="psql -U postgres"
+else
+    PSQL_ADMIN="sudo -u postgres psql"
+fi
+$PSQL_ADMIN -c "CREATE USER $DB_USER WITH PASSWORD '$DB_PASS';" 2>/dev/null || true
+$PSQL_ADMIN -c "CREATE DATABASE $DB_NAME OWNER $DB_USER;" 2>/dev/null || true
+$PSQL_ADMIN -c "ALTER USER $DB_USER CREATEDB;" 2>/dev/null || true
+if ! $PSQL_ADMIN -d $DB_NAME -c "CREATE EXTENSION IF NOT EXISTS vector;" >/dev/null 2>&1; then
+    echo "⚠️  pgvector 拡張の有効化に失敗 (= RAG は無効になります)"
+fi
+echo "✅ DB bootstrap 完了 (= schemas / tables は container 起動時に自動作成)"
 
 # Run container with GPU
 echo "🐳 Starting container (GPU enabled)..."
