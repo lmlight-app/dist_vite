@@ -7,7 +7,6 @@ INSTALL_DIR="${DB_INSTALL_DIR:-$HOME/.local/db-vllm}"
 ARCH="$(uname -m)"
 case "$ARCH" in x86_64|amd64) ARCH="amd64" ;; aarch64|arm64) ARCH="arm64" ;; esac
 
-
 echo " Installing AI Server vLLM Edition ($ARCH) to $INSTALL_DIR"
 
 mkdir -p "$INSTALL_DIR"
@@ -138,40 +137,10 @@ VLLM_GPU_MEMORY_UTILIZATION_EMBED=0.10
 
 # Additional vLLM arguments (space-separated, passed directly to vllm serve)
 # Examples: --enforce-eager, --enable-prefix-caching, --quantization awq, --dtype half
-# VLLM_EXTRA_ARGS_CHAT="--enforce-eager --enable-prefix-caching"
+#VLLM_REASONING_PARSER=qwen3 
+# VLLM_EXTRA_ARGS_CHAT=--enforce-eager --enable-prefix-caching
 # VLLM_EXTRA_ARGS_EMBED=--enforce-eager
-# VLLM_EXTRA_ARGS_VISION="--enforce-eager"
-
-# ------- Reasoning (thinking mode) -------
-# Set to the parser name matching your model. Independent of tool
-# calling — safe to set even when tools are off.
-#   qwen3       — Qwen 3 / 3.5 (thinking-capable)
-#   gemma4      — Gemma 4 (thinking-capable)
-#   deepseek_r1 — DeepSeek R1
-# VLLM_REASONING_PARSER=qwen3
-
-# ------- Tool calling (function calling) -------
-# vLLM auto-detects parser + chat template for most instruction-tuned
-# models via their HuggingFace tokenizer_config.json. Set the flags
-# below only when (a) vLLM doesn't auto-enable tool calling for your
-# model, or (b) you want a non-default parser/template.
-# Bare filenames in --chat-template are resolved against lmlight's
-# bundled templates; use absolute paths for your own .jinja files.
-#
-# NOTE: reasoning parser goes in VLLM_REASONING_PARSER above, NOT here,
-# even if your model uses the same parser name for both (e.g. gemma4).
-#
-# Gemma 4 — HF default template is plain-chat-only, so tool calling
-# needs lmlight's bundled template + the gemma4 parser:
-# VLLM_EXTRA_ARGS_CHAT="--enable-auto-tool-choice --tool-call-parser gemma4 --chat-template tool_chat_template_gemma4.jinja"
-#
-# Other families (pick one, matching your model):
-# VLLM_EXTRA_ARGS_CHAT="--enable-auto-tool-choice --tool-call-parser hermes"              # Qwen 2.5, Nous/Hermes tunes
-# VLLM_EXTRA_ARGS_CHAT="--enable-auto-tool-choice --tool-call-parser qwen3_xml"           # Qwen 3
-# VLLM_EXTRA_ARGS_CHAT="--enable-auto-tool-choice --tool-call-parser llama3_json"         # Llama 3.0/3.1
-# VLLM_EXTRA_ARGS_CHAT="--enable-auto-tool-choice --tool-call-parser pythonic"            # Llama 3.2/3.3
-# VLLM_EXTRA_ARGS_CHAT="--enable-auto-tool-choice --tool-call-parser llama4_pythonic"     # Llama 4
-# VLLM_EXTRA_ARGS_CHAT="--enable-auto-tool-choice --tool-call-parser mistral"             # Mistral / Mixtral / Devstral
+# VLLM_EXTRA_ARGS_VISION=--enforce-eager
 
 # =============================================================================
 # Whisper Transcription (GPU auto-detect)
@@ -231,8 +200,34 @@ if [ -f "$INSTALL_DIR/.env" ]; then
         export DB_NAME=$(echo "$_DB_URL" | sed -n 's|.*/\([^?]*\).*|\1|p')
     fi
 fi
-echo "Setting up database..."
-curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/db_setup.sh | bash
+# ── DB bootstrap (= superuser でしかできない 3 つだけ。schema / table / index /
+# column 追加 / 初期 admin user は backend 起動時の migrations.py が冪等に作成) ──
+echo "Setting up database (bootstrap only)..."
+DB_USER="${DB_USER:-digitalbase}"
+DB_PASS="${DB_PASS:-digitalbase}"
+DB_NAME="${DB_NAME:-digitalbase}"
+
+if ! command -v psql &>/dev/null; then
+    echo "❌ PostgreSQL がインストールされていません。"
+    echo "   sudo apt install postgresql"
+    echo "   sudo systemctl start postgresql"
+    exit 1
+fi
+if ! pg_isready -q 2>/dev/null; then
+    echo "❌ PostgreSQL に接続できません (localhost:5432)。"
+    echo "   sudo systemctl start postgresql"
+    exit 1
+fi
+
+PSQL_ADMIN="sudo -u postgres psql"
+$PSQL_ADMIN -c "CREATE USER $DB_USER WITH PASSWORD '$DB_PASS';" 2>/dev/null || true
+$PSQL_ADMIN -c "CREATE DATABASE $DB_NAME OWNER $DB_USER;" 2>/dev/null || true
+$PSQL_ADMIN -c "ALTER USER $DB_USER CREATEDB;" 2>/dev/null || true
+if ! $PSQL_ADMIN -d $DB_NAME -c "CREATE EXTENSION IF NOT EXISTS vector;" >/dev/null 2>&1; then
+    echo "⚠️  pgvector 拡張の有効化に失敗しました。RAG 機能を使う場合は:"
+    echo "   sudo apt install postgresql-\$(psql -V | grep -oE '[0-9]+' | head -1)-pgvector"
+fi
+echo "✅ DB bootstrap 完了 (= schemas / tables は backend 起動時に自動作成)"
 
 cat > "$INSTALL_DIR/start.sh" << 'EOF'
 #!/bin/bash
