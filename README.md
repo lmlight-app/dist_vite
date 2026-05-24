@@ -76,22 +76,37 @@ winget install PostgreSQL.PostgreSQL.17 Ollama.Ollama Gyan.FFmpeg UB-Mannheim.Te
 
 ### データベース
 
-インストーラーがDB作成・テーブル作成・初期ユーザー作成を自動実行します。
+インストーラーは **DB ユーザー / データベース / pgvector 拡張** だけを作成します (= superuser でないと作れないため)。
+スキーマ・テーブル・インデックス・初期管理ユーザーは **バックエンド初回起動時に自動作成**されます (= 冪等)。
 
-データベースのみを手動実行:
+アップデート時も既存データは保持されます。
+
+#### 手動セットアップが必要なケース
+
+通常は不要ですが、以下の場合は手動で `db_setup.sh` を実行してください:
+
+| 状況 | 対応 |
+|---|---|
+| バックエンド起動時に **権限エラーで table が作れない** | DBA に superuser 権限で `db_setup.sh` を実行してもらう |
+| **air-gapped 環境** で DB だけ事前に用意したい | 同上 |
+| バックエンドが起動できず schema を手で投入したい | 同上 |
+
+**実行方法 (= superuser として):**
 
 ```bash
 # macOS/Linux
 curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/db_setup.sh | bash
 ```
 
-**データベース削除:**
+このスクリプトは DB ユーザー / データベース / pgvector に加えて、全スキーマ・テーブル・インデックスを raw SQL で一括投入します。
+実行後はバックエンドを起動するだけで利用可能です。
+
+#### データベース削除
+
 ```bash
 psql -U postgres -c "DROP DATABASE digitalbase;"
-# その後、上記のdb_setupを再実行
+# その後インストーラーを再実行 (= バックエンド起動時に再構築されます)
 ```
-
-※ アップデート時も既存データは保持されます
 
 ### Ollamaモデル
 
