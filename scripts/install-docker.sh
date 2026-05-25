@@ -42,6 +42,8 @@ if [ ! -f "$DATA_DIR/.env" ]; then
     cat > "$DATA_DIR/.env" <<EOF
 DATABASE_URL=postgresql://digitalbase:digitalbase@host.docker.internal:5432/digitalbase
 OLLAMA_BASE_URL=http://host.docker.internal:11434
+# Ollama daemon の num_ctx (default 2048 → 16384)、ホスト ollama serve に別途設定要
+OLLAMA_CONTEXT_LENGTH=16384
 JWT_SECRET=$JWT_SECRET
 OAUTH_ENCRYPTION_KEY=$OAUTH_KEY
 AUTH_MODE=local
