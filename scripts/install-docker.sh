@@ -44,6 +44,8 @@ DATABASE_URL=postgresql://digitalbase:digitalbase@host.docker.internal:5432/digi
 OLLAMA_BASE_URL=http://host.docker.internal:11434
 # Ollama daemon の num_ctx (default 2048 → 16384)、ホスト ollama serve に別途設定要
 OLLAMA_CONTEXT_LENGTH=16384
+# upload file 等の保存先 (= /app/data は host の \$DATA_DIR に bind mount、container 削除で消えない)
+FILES_DIR=/app/data/files
 JWT_SECRET=$JWT_SECRET
 OAUTH_ENCRYPTION_KEY=$OAUTH_KEY
 AUTH_MODE=local
