@@ -326,30 +326,84 @@ Docker Hub で公開。API + UI を 1 コンテナに同梱、`linux/amd64` / `l
 | `lmlight/digitalbase-ollama:latest` | Ollama | CPU/GPU 混在、軽量モデル中心 (≤7B) |
 | `lmlight/digitalbase-vllm:latest` | vLLM | NVIDIA GPU、高スループット、マルチテナント |
 
-タグ運用:
+> tag 体系は `:latest` 一本に統一しています (= 旧 `:1` `:1.2` `:1.2.3` は更新停止)。
 
-| タグ | 追従 | 推奨 |
-|---|---|---|
-| `1.2.3` | 完全固定 | **本番** |
-| `1.2`   | パッチ追従 | ステージング |
-| `1`     | マイナー追従 | 互換確認 |
-| `latest`| 全追従 | 開発・お試し |
+### 前提条件
 
-### 推奨: 動作確認済みの compose レシピを使う
+| 必須 | 用途 |
+|---|---|
+| Docker (Desktop / Engine) | container 実行 |
+| **PostgreSQL 16+ + pgvector 拡張** (host or 別 container) | DB |
+| Ollama (Ollama 版のみ、host or 別 container) | LLM 推論 |
+| NVIDIA GPU + nvidia-container-toolkit (vLLM 版のみ) | GPU 推論 |
 
-フルスタック compose は別途資料としてご用意ありますので、お申し付けください。
+### Step 1: PostgreSQL の bootstrap (= 初回のみ)
+
+DigitalBase 用に **user / database / extension** を作成します。superuser 権限で実行:
 
 ```bash
-git clone https://github.com/lmlight-app/dist_vite.git
-cd dist_vite/examples/docker-compose-vllm   # または docker-compose-ollama
-cp .env.example .env && nano .env
-cp /path/to/license.lic .
-docker compose up -d
+# macOS (= host の postgres を使う場合)
+psql -U postgres <<'SQL'
+CREATE USER digitalbase WITH PASSWORD 'digitalbase';
+CREATE DATABASE digitalbase OWNER digitalbase;
+ALTER USER digitalbase CREATEDB;
+\c digitalbase
+CREATE EXTENSION IF NOT EXISTS vector;
+SQL
+
+# Linux
+sudo -u postgres psql <<'SQL'
+CREATE USER digitalbase WITH PASSWORD 'digitalbase';
+CREATE DATABASE digitalbase OWNER digitalbase;
+ALTER USER digitalbase CREATEDB;
+\c digitalbase
+CREATE EXTENSION IF NOT EXISTS vector;
+SQL
 ```
 
-以下は最小構成の `docker run` パターン（compose が嫌な場合のみ）。
+> 既存 PostgreSQL infra (= 社内 DB、AWS RDS 等) を使う場合は、上記 SQL を DBA に依頼してください。
+> `digitalbase` 以外の DB 名/ユーザー名を使う場合は、後述の `DATABASE_URL` で合わせて変更します。
 
-### Ollama版
+### Step 2: `.env` ファイル作成 (= 初回のみ、secret を固定化)
+
+`JWT_SECRET` / `OAUTH_ENCRYPTION_KEY` は **container 再作成時に値が変わると既存データが復号不能** になります。`.env` に保存して再利用してください。
+
+**Ollama 版:**
+
+```bash
+mkdir -p ~/.local/db
+cat > ~/.local/db/.env <<EOF
+DATABASE_URL=postgresql://digitalbase:digitalbase@host.docker.internal:5432/digitalbase
+OLLAMA_BASE_URL=http://host.docker.internal:11434
+OLLAMA_CONTEXT_LENGTH=16384
+JWT_SECRET=$(openssl rand -hex 32)
+OAUTH_ENCRYPTION_KEY=$(openssl rand -hex 32)
+AUTH_MODE=local
+EOF
+chmod 600 ~/.local/db/.env
+cp /path/to/license.lic ~/.local/db/license.lic
+```
+
+**vLLM 版:**
+
+```bash
+mkdir -p ~/.local/db-vllm
+cat > ~/.local/db-vllm/.env <<EOF
+DATABASE_URL=postgresql://digitalbase:digitalbase@host.docker.internal:5432/digitalbase
+VLLM_BASE_URL=http://host.docker.internal:8080
+VLLM_EMBED_BASE_URL=http://host.docker.internal:8081
+VLLM_AUTO_START=false
+JWT_SECRET=$(openssl rand -hex 32)
+OAUTH_ENCRYPTION_KEY=$(openssl rand -hex 32)
+AUTH_MODE=local
+EOF
+chmod 600 ~/.local/db-vllm/.env
+cp /path/to/license.lic ~/.local/db-vllm/license.lic
+```
+
+### Step 3: container 起動
+
+**Ollama 版:**
 
 ```bash
 docker pull lmlight/digitalbase-ollama:latest
@@ -357,20 +411,13 @@ docker pull lmlight/digitalbase-ollama:latest
 docker run -d \
   --name db \
   -p 8000:8000 \
-  -e DATABASE_URL=postgresql://digitalbase:digitalbase@host.docker.internal:5432/digitalbase \
-  -e OLLAMA_BASE_URL=http://host.docker.internal:11434 \
-  -e JWT_SECRET=$(openssl rand -hex 32) \
-  -e AUTH_MODE=local \
-  -v ~/.local/db/license.lic:/app/data/license.lic:ro \
+  --env-file ~/.local/db/.env \
+  -v ~/.local/db:/app/data \
   --restart unless-stopped \
   lmlight/digitalbase-ollama:latest
 ```
 
-> upload file 等を **永続化したい場合**は `-v ~/.local/db:/app/data` を追加 (= `/app/data/files/` に保存されます、未指定だと container 削除時に消えます)。
-
-### vLLM版（GPU）
-
-vLLM サーバーは別コンテナで起動（GPU は `nvidia-container-toolkit` 経由でマウント）。下の **docker-compose 構成**を推奨。スタンドアロン `docker run` のみで API だけ立てたい場合：
+**vLLM 版:**
 
 ```bash
 docker pull lmlight/digitalbase-vllm:latest
@@ -378,18 +425,15 @@ docker pull lmlight/digitalbase-vllm:latest
 docker run -d \
   --name db-vllm \
   -p 8000:8000 \
-  -e DATABASE_URL=postgresql://digitalbase:digitalbase@host.docker.internal:5432/digitalbase \
-  -e VLLM_BASE_URL=http://host.docker.internal:8080 \
-  -e VLLM_EMBED_BASE_URL=http://host.docker.internal:8081 \
-  -e VLLM_AUTO_START=false \
-  -e JWT_SECRET=$(openssl rand -hex 32) \
-  -e AUTH_MODE=local \
-  -v ~/.local/db-vllm/license.lic:/app/data/license.lic:ro \
+  --env-file ~/.local/db-vllm/.env \
+  -v ~/.local/db-vllm:/app/data \
   --restart unless-stopped \
   lmlight/digitalbase-vllm:latest
 ```
 
-> **Note:** `docker run` 単体では vLLM は別途自分で起動する必要があります（API は `VLLM_BASE_URL` を見に行くだけ）。フルスタックで一発起動したい場合は、次節の compose を使ってください。
+> `docker run` 単体では vLLM 本体は別途起動する必要があります (= API は `VLLM_BASE_URL` を見に行くだけ)。フルスタック一発起動は次節の compose を使ってください。
+
+container 起動時に **DB schema / table / index / 初期 admin user は自動作成** されます (= `migrations.py` が冪等に実行)。アクセス: http://localhost:8000、初回ログイン: `admin@local` / `admin123`。
 
 ### フルスタックで一発起動 (docker-compose)
 
@@ -516,21 +560,13 @@ docker start db                              # 起動
 **Ollama 版:**
 
 ```bash
-# ① 最新 image を取得
 docker pull lmlight/digitalbase-ollama:latest
-
-# ② 既存 container を停止・削除
 docker stop db && docker rm db
-
-# ③ 新 container を起動 (= 上の docker run と同じコマンド、JWT_SECRET 等は同じ値を再利用)
 docker run -d \
   --name db \
   -p 8000:8000 \
-  -e DATABASE_URL=postgresql://digitalbase:digitalbase@host.docker.internal:5432/digitalbase \
-  -e OLLAMA_BASE_URL=http://host.docker.internal:11434 \
-  -e JWT_SECRET=<前回と同じ値> \
-  -e AUTH_MODE=local \
-  -v ~/.local/db/license.lic:/app/data/license.lic:ro \
+  --env-file ~/.local/db/.env \
+  -v ~/.local/db:/app/data \
   --restart unless-stopped \
   lmlight/digitalbase-ollama:latest
 ```
@@ -538,28 +574,18 @@ docker run -d \
 **vLLM 版:**
 
 ```bash
-# ① 最新 image を取得
 docker pull lmlight/digitalbase-vllm:latest
-
-# ② 既存 container を停止・削除
 docker stop db-vllm && docker rm db-vllm
-
-# ③ 新 container を起動
 docker run -d \
   --name db-vllm \
   -p 8000:8000 \
-  -e DATABASE_URL=postgresql://digitalbase:digitalbase@host.docker.internal:5432/digitalbase \
-  -e VLLM_BASE_URL=http://host.docker.internal:8080 \
-  -e VLLM_EMBED_BASE_URL=http://host.docker.internal:8081 \
-  -e VLLM_AUTO_START=false \
-  -e JWT_SECRET=<前回と同じ値> \
-  -e AUTH_MODE=local \
-  -v ~/.local/db-vllm/license.lic:/app/data/license.lic:ro \
+  --env-file ~/.local/db-vllm/.env \
+  -v ~/.local/db-vllm:/app/data \
   --restart unless-stopped \
   lmlight/digitalbase-vllm:latest
 ```
 
-> **`JWT_SECRET` は前回起動時と同じ値を再利用**してください。新しい乱数を生成すると既存ユーザーの認証 token が失効します。`--env-file ~/.local/db/.env` で `.env` ファイルに外出ししておけば、毎回同じ値が自動的に渡されて安全です。
+> **`.env` を再利用するので JWT_SECRET / OAUTH_ENCRYPTION_KEY は不変** = 既存ユーザー認証 token + 暗号化 connection 設定がそのまま使えます。
 
 > **table / column の追加は自動**: 新 image 起動時に `migrations.py` が冪等に実行され、新規 table・新規 column・新規 index は自動で追加されます (= 既存データはそのまま保持)。
 
