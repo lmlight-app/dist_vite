@@ -229,7 +229,7 @@ irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-win
 
 Docker / Kubernetes による導入にも対応:
 
-- **Docker イメージ**: `lmlight/digitalbase-ollama:1` / `lmlight/digitalbase-vllm:1` (`linux/amd64` + `linux/arm64`)
+- **Docker イメージ**: `lmlight/digitalbase-ollama:latest` / `lmlight/digitalbase-vllm:latest` (`linux/amd64` + `linux/arm64`)
 - **Helm chart**: `deploy/helm/digitalbase` (3 モード: クラスタ内 GPU / 外部 GPU / マネージド推論 API)
 - **Kustomize**: `deploy/k8s/` (overlay で構成切替)
 

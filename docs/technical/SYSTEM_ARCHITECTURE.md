@@ -221,7 +221,7 @@ graph LR
 
 ### パターン2: Docker Compose
 
-Docker Compose で全コンポーネントをコンテナ化。PostgreSQL も含まれるため個別インストール不要。イメージは `lmlight/digitalbase-ollama:1` / `lmlight/digitalbase-vllm:1` (`linux/amd64` + `linux/arm64`)。
+Docker Compose で全コンポーネントをコンテナ化。PostgreSQL も含まれるため個別インストール不要。イメージは `lmlight/digitalbase-ollama:latest` / `lmlight/digitalbase-vllm:latest` (`linux/amd64` + `linux/arm64`)。
 
 ### パターン3: 分散配置
 

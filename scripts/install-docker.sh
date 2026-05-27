@@ -7,7 +7,7 @@
 set -e
 
 DOCKER_USER="lmlight"
-IMAGE="$DOCKER_USER/digitalbase-ollama:1"
+IMAGE="$DOCKER_USER/digitalbase-ollama:latest"
 CONTAINER_NAME="db"
 
 echo "🚀 Installing LM Light (Docker - Ollama Edition)"
@@ -114,4 +114,4 @@ echo "Commands:"
 echo "  docker logs $CONTAINER_NAME          # View logs"
 echo "  docker stop $CONTAINER_NAME          # Stop"
 echo "  docker start $CONTAINER_NAME         # Start"
-echo "  docker pull $IMAGE && docker restart $CONTAINER_NAME  # Update"
+echo "  docker pull $IMAGE && docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME && bash install-docker.sh   # Update (= recreate container with new image)"

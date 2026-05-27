@@ -17,7 +17,7 @@
 
 services:
   api:
-    image: lmlight/digitalbase-ollama:1
+    image: lmlight/digitalbase-ollama:latest
     container_name: db
     env_file:
       - .env

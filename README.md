@@ -323,8 +323,8 @@ Docker Hub で公開。API + UI を 1 コンテナに同梱、`linux/amd64` / `l
 
 | イメージ | LLM バックエンド | 推奨用途 |
 |---|---|---|
-| `lmlight/digitalbase-ollama:1` | Ollama | CPU/GPU 混在、軽量モデル中心 (≤7B) |
-| `lmlight/digitalbase-vllm:1` | vLLM | NVIDIA GPU、高スループット、マルチテナント |
+| `lmlight/digitalbase-ollama:latest` | Ollama | CPU/GPU 混在、軽量モデル中心 (≤7B) |
+| `lmlight/digitalbase-vllm:latest` | vLLM | NVIDIA GPU、高スループット、マルチテナント |
 
 タグ運用:
 
@@ -352,7 +352,7 @@ docker compose up -d
 ### Ollama版
 
 ```bash
-docker pull lmlight/digitalbase-ollama:1
+docker pull lmlight/digitalbase-ollama:latest
 
 docker run -d \
   --name db \
@@ -363,15 +363,17 @@ docker run -d \
   -e AUTH_MODE=local \
   -v ~/.local/db/license.lic:/app/data/license.lic:ro \
   --restart unless-stopped \
-  lmlight/digitalbase-ollama:1
+  lmlight/digitalbase-ollama:latest
 ```
+
+> upload file 等を **永続化したい場合**は `-v ~/.local/db:/app/data` を追加 (= `/app/data/files/` に保存されます、未指定だと container 削除時に消えます)。
 
 ### vLLM版（GPU）
 
 vLLM サーバーは別コンテナで起動（GPU は `nvidia-container-toolkit` 経由でマウント）。下の **docker-compose 構成**を推奨。スタンドアロン `docker run` のみで API だけ立てたい場合：
 
 ```bash
-docker pull lmlight/digitalbase-vllm:1
+docker pull lmlight/digitalbase-vllm:latest
 
 docker run -d \
   --name db-vllm \
@@ -384,7 +386,7 @@ docker run -d \
   -e AUTH_MODE=local \
   -v ~/.local/db-vllm/license.lic:/app/data/license.lic:ro \
   --restart unless-stopped \
-  lmlight/digitalbase-vllm:1
+  lmlight/digitalbase-vllm:latest
 ```
 
 > **Note:** `docker run` 単体では vLLM は別途自分で起動する必要があります（API は `VLLM_BASE_URL` を見に行くだけ）。フルスタックで一発起動したい場合は、次節の compose を使ってください。
@@ -450,7 +452,7 @@ services:
     restart: unless-stopped
 
   api:
-    image: lmlight/digitalbase-vllm:1   # Ollama 版なら lmlight/digitalbase-ollama:1
+    image: lmlight/digitalbase-vllm:latest   # Ollama 版なら lmlight/digitalbase-ollama:latest
     env_file: .env
     volumes:
       - ./license.lic:/app/data/license.lic:ro
@@ -502,11 +504,66 @@ docker compose down       # 停止
 ### 操作
 
 ```bash
-docker logs db                                                    # ログ
-docker stop db                                                    # 停止
-docker start db                                                   # 起動
-docker pull lmlight/digitalbase-ollama:1 && docker restart db     # アップデート
+docker logs db                               # ログ
+docker stop db                               # 停止
+docker start db                              # 起動
 ```
+
+#### アップデート
+
+`docker restart` だけでは **新 image に切り替わりません** (= 同じ container が再起動するだけ)。container 再作成が必要です。
+
+**Ollama 版:**
+
+```bash
+# ① 最新 image を取得
+docker pull lmlight/digitalbase-ollama:latest
+
+# ② 既存 container を停止・削除
+docker stop db && docker rm db
+
+# ③ 新 container を起動 (= 上の docker run と同じコマンド、JWT_SECRET 等は同じ値を再利用)
+docker run -d \
+  --name db \
+  -p 8000:8000 \
+  -e DATABASE_URL=postgresql://digitalbase:digitalbase@host.docker.internal:5432/digitalbase \
+  -e OLLAMA_BASE_URL=http://host.docker.internal:11434 \
+  -e JWT_SECRET=<前回と同じ値> \
+  -e AUTH_MODE=local \
+  -v ~/.local/db/license.lic:/app/data/license.lic:ro \
+  --restart unless-stopped \
+  lmlight/digitalbase-ollama:latest
+```
+
+**vLLM 版:**
+
+```bash
+# ① 最新 image を取得
+docker pull lmlight/digitalbase-vllm:latest
+
+# ② 既存 container を停止・削除
+docker stop db-vllm && docker rm db-vllm
+
+# ③ 新 container を起動
+docker run -d \
+  --name db-vllm \
+  -p 8000:8000 \
+  -e DATABASE_URL=postgresql://digitalbase:digitalbase@host.docker.internal:5432/digitalbase \
+  -e VLLM_BASE_URL=http://host.docker.internal:8080 \
+  -e VLLM_EMBED_BASE_URL=http://host.docker.internal:8081 \
+  -e VLLM_AUTO_START=false \
+  -e JWT_SECRET=<前回と同じ値> \
+  -e AUTH_MODE=local \
+  -v ~/.local/db-vllm/license.lic:/app/data/license.lic:ro \
+  --restart unless-stopped \
+  lmlight/digitalbase-vllm:latest
+```
+
+> **`JWT_SECRET` は前回起動時と同じ値を再利用**してください。新しい乱数を生成すると既存ユーザーの認証 token が失効します。`--env-file ~/.local/db/.env` で `.env` ファイルに外出ししておけば、毎回同じ値が自動的に渡されて安全です。
+
+> **table / column の追加は自動**: 新 image 起動時に `migrations.py` が冪等に実行され、新規 table・新規 column・新規 index は自動で追加されます (= 既存データはそのまま保持)。
+
+> **旧 `:1` tag を使っていた方へ**: tag 体系を変更したため、今後は `:latest` を pull してください。`:1` は更新が止まっています。
 
 - アクセス: http://localhost:8000
 - 初回ログイン: `admin@local` / `admin123`

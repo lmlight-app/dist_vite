@@ -7,7 +7,7 @@
 set -e
 
 DOCKER_USER="lmlight"
-IMAGE="$DOCKER_USER/digitalbase-vllm:1"
+IMAGE="$DOCKER_USER/digitalbase-vllm:latest"
 CONTAINER_NAME="db-vllm"
 
 echo "🚀 Installing LM Light (Docker - vLLM Edition)"
@@ -155,4 +155,4 @@ echo "Commands:"
 echo "  docker logs $CONTAINER_NAME          # View logs"
 echo "  docker stop $CONTAINER_NAME          # Stop"
 echo "  docker start $CONTAINER_NAME         # Start"
-echo "  docker pull $IMAGE && docker restart $CONTAINER_NAME  # Update"
+echo "  docker pull $IMAGE && docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME && bash install-docker-vllm.sh   # Update (= recreate container with new image)"

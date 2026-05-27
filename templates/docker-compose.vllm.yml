@@ -14,7 +14,7 @@
 
 services:
   api:
-    image: lmlight/digitalbase-vllm:1
+    image: lmlight/digitalbase-vllm:latest
     container_name: db-vllm
     env_file:
       - .env
