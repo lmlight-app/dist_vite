@@ -94,74 +94,46 @@ echo "✅ Python venv ready"
 # AI Server Configuration (vLLM Edition)
 # =============================================================================
 
-# Python path for vLLM (auto-configured by installer)
-VLLM_PYTHON=$INSTALL_DIR/venv/bin/python
-
-# PostgreSQL Database
+# ── Database ────────────────────────────────────────────────────────────────
 DATABASE_URL=postgresql://digitalbase:digitalbase@localhost:5432/digitalbase
 
-# =============================================================================
-# vLLM Server URLs
-# =============================================================================
+# ── vLLM Runtime ────────────────────────────────────────────────────────────
+VLLM_PYTHON=$INSTALL_DIR/venv/bin/python
 VLLM_BASE_URL=http://localhost:8080
 VLLM_EMBED_BASE_URL=http://localhost:8081
-# Optional: Separate vision server (leave empty to use chat server for vision)
 # VLLM_VISION_BASE_URL=http://localhost:8082
-
-# =============================================================================
-# vLLM Auto-Start Configuration
-# When enabled, API will automatically start vLLM servers on startup.
-# First run requires network to download models from HuggingFace.
-# Models are cached at ~/.cache/huggingface/hub/
-# =============================================================================
 VLLM_AUTO_START=true
 
-# Models (HuggingFace model IDs)
+# ── vLLM Models ─────────────────────────────────────────────────────────────
 VLLM_CHAT_MODEL=Qwen/Qwen3.5-35B-A3B
 VLLM_EMBED_MODEL=Qwen/Qwen3-Embedding-0.6B
-# Optional: Separate vision model (requires VLLM_VISION_BASE_URL)
 # VLLM_VISION_MODEL=Qwen/Qwen2.5-VL-7B-Instruct
 
-# GPU Configuration
-# VLLM_TENSOR_PARALLEL: Number of GPUs for tensor parallelism (default: 1)
-# VLLM_GPU_MEMORY_UTILIZATION_{CHAT,EMBED,VISION}: Per-server GPU memory ratio
-#   Unset = vLLM default (0.9), set when running multiple servers on same GPU
-#   2-server (chat + embed):  0.70 + 0.10 = 0.80
-#   3-server (+ vision):      0.35 + 0.10 + 0.25 = 0.70
-# VLLM_MAX_MODEL_LEN: Max context length (empty = model default)
+# ── vLLM GPU ────────────────────────────────────────────────────────────────
 VLLM_TENSOR_PARALLEL=1
 VLLM_GPU_MEMORY_UTILIZATION_CHAT=0.70
 VLLM_GPU_MEMORY_UTILIZATION_EMBED=0.10
 # VLLM_GPU_MEMORY_UTILIZATION_VISION=0.25
 # VLLM_MAX_MODEL_LEN=4096
 
-# Additional vLLM arguments (space-separated, passed directly to vllm serve)
-# Examples: --enforce-eager, --enable-prefix-caching, --quantization awq, --dtype half
-#VLLM_REASONING_PARSER=qwen3 
+# ── vLLM Extra Args ─────────────────────────────────────────────────────────
+# VLLM_REASONING_PARSER=qwen3
 # VLLM_EXTRA_ARGS_CHAT=--enforce-eager --enable-prefix-caching
 # VLLM_EXTRA_ARGS_EMBED=--enforce-eager
 # VLLM_EXTRA_ARGS_VISION=--enforce-eager
 
-# =============================================================================
-# Whisper Transcription (GPU auto-detect)
-# Models are downloaded automatically on first use to ~/.cache/whisper/
-# Available: tiny, base, small, medium, large
-# =============================================================================
+# ── Whisper Transcription ───────────────────────────────────────────────────
 WHISPER_MODEL=base
 
-# =============================================================================
-# API Server Configuration
-# =============================================================================
+# ── Server ──────────────────────────────────────────────────────────────────
 API_HOST=0.0.0.0
 API_PORT=8000
 
-# =============================================================================
-# Authentication
-# =============================================================================
+# ── Authentication ──────────────────────────────────────────────────────────
 JWT_SECRET=$(openssl rand -hex 32)
 AUTH_MODE=local
 
-# LDAP (AUTH_MODE=ldap)
+# ── LDAP (AUTH_MODE=ldap) ───────────────────────────────────────────────────
 # LDAP_HOST=your-ad-server.company.local
 # LDAP_PORT=389
 # LDAP_USE_SSL=false
@@ -170,21 +142,15 @@ AUTH_MODE=local
 # LDAP_BIND_DN=
 # LDAP_BIND_PASSWORD=
 
-# OIDC / Azure AD (AUTH_MODE=oidc)
+# ── OIDC / Azure AD (AUTH_MODE=oidc) ────────────────────────────────────────
 # OIDC_CLIENT_ID=
 # OIDC_CLIENT_SECRET=
 # OIDC_TENANT_ID=
 
-# =============================================================================
-# Offline Mode
-# After models are downloaded, uncomment to run without internet.
-# Not needed if using local model paths (e.g. /path/to/model).
-# =============================================================================
+# ── Offline Mode ────────────────────────────────────────────────────────────
 # HF_HUB_OFFLINE=1
 
-# =============================================================================
-# License Configuration
-# =============================================================================
+# ── License ─────────────────────────────────────────────────────────────────
 LICENSE_FILE_PATH=$INSTALL_DIR/license.lic
 
 # File Storage (pipeline uploads/outputs)

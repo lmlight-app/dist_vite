@@ -32,36 +32,26 @@ fi
 # AI Server Configuration (Vite Edition)
 # =============================================================================
 
-# PostgreSQL Database
+# ── Database ────────────────────────────────────────────────────────────────
 DATABASE_URL=postgresql://digitalbase:digitalbase@localhost:5432/digitalbase
 
-# Ollama 設定 (= daemon-native env、ollama serve が直接読む。app 側も config.py で読む)
+# ── LLM Backend ─────────────────────────────────────────────────────────────
 OLLAMA_BASE_URL=http://localhost:11434
-# Ollama daemon の num_ctx 上書き (default 2048 → 16384) - document 出力切れ防止
 OLLAMA_CONTEXT_LENGTH=16384
 
-# License
+# ── Storage ─────────────────────────────────────────────────────────────────
 LICENSE_FILE_PATH=$INSTALL_DIR/license.lic
-
-# File Storage (pipeline uploads/outputs)
 FILES_DIR=$INSTALL_DIR/files
 
-# =============================================================================
-# Server Configuration (API + Web on single port)
-# =============================================================================
+# ── Server ──────────────────────────────────────────────────────────────────
 API_HOST=0.0.0.0
 API_PORT=8000
 
-# =============================================================================
-# Authentication
-# =============================================================================
-# JWT Secret (auto-generated, change in production)
+# ── Authentication ──────────────────────────────────────────────────────────
 JWT_SECRET=$(openssl rand -hex 32)
-
-# Auth mode: local / ldap / oidc
 AUTH_MODE=local
 
-# LDAP (AUTH_MODE=ldap)
+# ── LDAP (AUTH_MODE=ldap) ───────────────────────────────────────────────────
 # LDAP_HOST=your-ad-server.company.local
 # LDAP_PORT=389
 # LDAP_USE_SSL=false
@@ -70,31 +60,24 @@ AUTH_MODE=local
 # LDAP_BIND_DN=
 # LDAP_BIND_PASSWORD=
 
-# OIDC / Azure AD (AUTH_MODE=oidc)
+# ── OIDC / Azure AD (AUTH_MODE=oidc) ────────────────────────────────────────
 # OIDC_CLIENT_ID=
 # OIDC_CLIENT_SECRET=
 # OIDC_TENANT_ID=
 
-# =============================================================================
-# Cloud LLM Providers (optional — set API key to enable)
-# =============================================================================
+# ── Cloud LLM Providers ─────────────────────────────────────────────────────
 # OPENAI_API_KEY=
 # OPENAI_BASE_URL=https://api.openai.com/v1
 # ANTHROPIC_API_KEY=
 # GEMINI_API_KEY=
 
-# =============================================================================
-# Web Search (default OFF — set true to enable)
-# =============================================================================
+# ── Web Search ──────────────────────────────────────────────────────────────
 # WEB_SEARCH_ENABLED=false
 # WEB_SEARCH_ENGINE=duckduckgo
 # WEB_SEARCH_SEARXNG_URL=http://localhost:8888
 # WEB_SEARCH_MAX_RESULTS=3
 
-# =============================================================================
-# Whisper Transcription
-# Install model first: install-transcribe.sh [tiny|base|small|medium|large]
-# =============================================================================
+# ── Whisper Transcription ───────────────────────────────────────────────────
 # WHISPER_MODEL=tiny
 EOF
 

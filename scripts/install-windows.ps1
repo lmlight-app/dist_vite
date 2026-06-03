@@ -422,29 +422,34 @@ Write-Info "ステップ 5/5: 設定を作成中..."
 if (-not (Test-Path "$INSTALL_DIR\.env")) {
     $JWT_SECRET = -join ((48..57) + (97..122) | Get-Random -Count 64 | ForEach-Object { [char]$_ })
     $ENV_CONTENT = @"
+# =============================================================================
 # AI Server Configuration
+# =============================================================================
+
+# ── Database ────────────────────────────────────────────────────────────────
 DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}
+
+# ── LLM Backend ─────────────────────────────────────────────────────────────
 OLLAMA_BASE_URL=http://localhost:11434
 # OLLAMA_NUM_PARALLEL=8
-# Ollama daemon の num_ctx (default 2048 → 16384) - document 出力切れ防止
 OLLAMA_CONTEXT_LENGTH=16384
-LICENSE_FILE_PATH=$INSTALL_DIR\license.lic
 
-# File Storage (pipeline uploads/outputs)
+# ── Storage ─────────────────────────────────────────────────────────────────
+LICENSE_FILE_PATH=$INSTALL_DIR\license.lic
 FILES_DIR=$INSTALL_DIR\files
 
-# Server Configuration (API + Web on single port)
+# ── Server ──────────────────────────────────────────────────────────────────
 API_HOST=0.0.0.0
 API_PORT=8000
 
-# Authentication
+# ── Authentication ──────────────────────────────────────────────────────────
 JWT_SECRET=$JWT_SECRET
 AUTH_MODE=local
 
-# Whisper Transcription
+# ── Whisper Transcription ───────────────────────────────────────────────────
 # WHISPER_MODEL=tiny
 
-# LDAP (AUTH_MODE=ldap)
+# ── LDAP (AUTH_MODE=ldap) ───────────────────────────────────────────────────
 # LDAP_HOST=your-ad-server.company.local
 # LDAP_PORT=389
 # LDAP_USE_SSL=false
@@ -453,18 +458,18 @@ AUTH_MODE=local
 # LDAP_BIND_DN=
 # LDAP_BIND_PASSWORD=
 
-# OIDC / Azure AD (AUTH_MODE=oidc)
+# ── OIDC / Azure AD (AUTH_MODE=oidc) ────────────────────────────────────────
 # OIDC_CLIENT_ID=
 # OIDC_CLIENT_SECRET=
 # OIDC_TENANT_ID=
 
-# Cloud LLM Providers (optional)
+# ── Cloud LLM Providers ─────────────────────────────────────────────────────
 # OPENAI_API_KEY=
 # OPENAI_BASE_URL=https://api.openai.com/v1
 # ANTHROPIC_API_KEY=
 # GEMINI_API_KEY=
 
-# Web Search (default OFF)
+# ── Web Search ──────────────────────────────────────────────────────────────
 # WEB_SEARCH_ENABLED=false
 # WEB_SEARCH_ENGINE=duckduckgo
 # WEB_SEARCH_SEARXNG_URL=http://localhost:8888
