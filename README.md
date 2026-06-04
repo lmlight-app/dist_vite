@@ -326,7 +326,6 @@ Docker Hub で公開。API + UI を 1 コンテナに同梱、`linux/amd64` / `l
 | `lmlight/digitalbase-ollama:latest` | Ollama | CPU/GPU 混在、軽量モデル中心 (≤7B) |
 | `lmlight/digitalbase-vllm:latest` | vLLM | NVIDIA GPU、高スループット、マルチテナント |
 
-> tag 体系は `:latest` 一本に統一しています (= 旧 `:1` `:1.2` `:1.2.3` は更新停止)。
 
 ### 前提条件
 
@@ -361,18 +360,20 @@ CREATE EXTENSION IF NOT EXISTS vector;
 SQL
 ```
 
-> 既存 PostgreSQL infra (= 社内 DB、AWS RDS 等) を使う場合は、上記 SQL を DBA に依頼してください。
 > `digitalbase` 以外の DB 名/ユーザー名を使う場合は、後述の `DATABASE_URL` で合わせて変更します。
 
-### Step 2: `.env` ファイル作成 (= 初回のみ、secret を固定化)
+### Step 2: 作業ディレクトリと `.env` 作成 (= 初回のみ、secret を固定化)
+
+任意のディレクトリを 1 つ作り、その中に `.env` と `license.lic` を置きます (compose 版と同じ流儀。`~/.local/db` 等の固定パスである必要はありません)。
 
 `JWT_SECRET` / `OAUTH_ENCRYPTION_KEY` は **container 再作成時に値が変わると既存データが復号不能** になります。`.env` に保存して再利用してください。
 
 **Ollama 版:**
 
 ```bash
-mkdir -p ~/.local/db
-cat > ~/.local/db/.env <<EOF
+mkdir digitalbase && cd digitalbase
+
+cat > .env <<EOF
 DATABASE_URL=postgresql://digitalbase:digitalbase@host.docker.internal:5432/digitalbase
 OLLAMA_BASE_URL=http://host.docker.internal:11434
 OLLAMA_CONTEXT_LENGTH=16384
@@ -380,15 +381,17 @@ JWT_SECRET=$(openssl rand -hex 32)
 OAUTH_ENCRYPTION_KEY=$(openssl rand -hex 32)
 AUTH_MODE=local
 EOF
-chmod 600 ~/.local/db/.env
-cp /path/to/license.lic ~/.local/db/license.lic
+chmod 600 .env
+
+cp /path/to/license.lic ./license.lic
 ```
 
 **vLLM 版:**
 
 ```bash
-mkdir -p ~/.local/db-vllm
-cat > ~/.local/db-vllm/.env <<EOF
+mkdir digitalbase-vllm && cd digitalbase-vllm
+
+cat > .env <<EOF
 DATABASE_URL=postgresql://digitalbase:digitalbase@host.docker.internal:5432/digitalbase
 VLLM_BASE_URL=http://host.docker.internal:8080
 VLLM_EMBED_BASE_URL=http://host.docker.internal:8081
@@ -397,11 +400,12 @@ JWT_SECRET=$(openssl rand -hex 32)
 OAUTH_ENCRYPTION_KEY=$(openssl rand -hex 32)
 AUTH_MODE=local
 EOF
-chmod 600 ~/.local/db-vllm/.env
-cp /path/to/license.lic ~/.local/db-vllm/license.lic
+chmod 600 .env
+
+cp /path/to/license.lic ./license.lic
 ```
 
-### Step 3: container 起動
+### Step 3: container 起動 (= Step 2 で作ったディレクトリ内で実行)
 
 **Ollama 版:**
 
@@ -411,8 +415,8 @@ docker pull lmlight/digitalbase-ollama:latest
 docker run -d \
   --name db \
   -p 8000:8000 \
-  --env-file ~/.local/db/.env \
-  -v ~/.local/db:/app/data \
+  --env-file .env \
+  -v "$PWD":/app/data \
   --restart unless-stopped \
   lmlight/digitalbase-ollama:latest
 ```
@@ -425,15 +429,16 @@ docker pull lmlight/digitalbase-vllm:latest
 docker run -d \
   --name db-vllm \
   -p 8000:8000 \
-  --env-file ~/.local/db-vllm/.env \
-  -v ~/.local/db-vllm:/app/data \
+  --env-file .env \
+  -v "$PWD":/app/data \
   --restart unless-stopped \
   lmlight/digitalbase-vllm:latest
 ```
 
-> `docker run` 単体では vLLM 本体は別途起動する必要があります (= API は `VLLM_BASE_URL` を見に行くだけ)。フルスタック一発起動は次節の compose を使ってください。
+> `docker run` 単体では vLLM 本体は別途起動する必要があります 
 
-container 起動時に **DB schema / table / index / 初期 admin user は自動作成** されます (= `migrations.py` が冪等に実行)。アクセス: http://localhost:8000、初回ログイン: `admin@local` / `admin123`。
+container 起動時に **DB schema / table / index / 初期 admin user は自動作成** されます
+アクセス: http://localhost:8000、初回ログイン: `admin@local` / `admin123`。
 
 ### フルスタックで一発起動 (docker-compose)
 
@@ -522,6 +527,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 DATABASE_URL=postgresql://digitalbase:digitalbase@postgres:5432/digitalbase
 WHISPER_API_URL=http://whisper:9000
 JWT_SECRET=change-me-to-random-secret
+OAUTH_ENCRYPTION_KEY=random
 AUTH_MODE=local
 
 # vLLM 版 — 同じ compose 内の vllm-chat / vllm-embed Service を参照
@@ -555,18 +561,17 @@ docker start db                              # 起動
 
 #### アップデート
 
-`docker restart` だけでは **新 image に切り替わりません** (= 同じ container が再起動するだけ)。container 再作成が必要です。
-
 **Ollama 版:**
 
 ```bash
+cd digitalbase   # Step 2 で作ったディレクトリ
 docker pull lmlight/digitalbase-ollama:latest
 docker stop db && docker rm db
 docker run -d \
   --name db \
   -p 8000:8000 \
-  --env-file ~/.local/db/.env \
-  -v ~/.local/db:/app/data \
+  --env-file .env \
+  -v "$PWD":/app/data \
   --restart unless-stopped \
   lmlight/digitalbase-ollama:latest
 ```
@@ -574,116 +579,24 @@ docker run -d \
 **vLLM 版:**
 
 ```bash
+cd digitalbase-vllm   # Step 2 で作ったディレクトリ
 docker pull lmlight/digitalbase-vllm:latest
 docker stop db-vllm && docker rm db-vllm
 docker run -d \
   --name db-vllm \
   -p 8000:8000 \
-  --env-file ~/.local/db-vllm/.env \
-  -v ~/.local/db-vllm:/app/data \
+  --env-file .env \
+  -v "$PWD":/app/data \
   --restart unless-stopped \
   lmlight/digitalbase-vllm:latest
 ```
 
 > **`.env` を再利用するので JWT_SECRET / OAUTH_ENCRYPTION_KEY は不変** = 既存ユーザー認証 token + 暗号化 connection 設定がそのまま使えます。
 
-> **table / column の追加は自動**: 新 image 起動時に `migrations.py` が冪等に実行され、新規 table・新規 column・新規 index は自動で追加されます (= 既存データはそのまま保持)。
-
-> **旧 `:1` tag を使っていた方へ**: tag 体系を変更したため、今後は `:latest` を pull してください。`:1` は更新が止まっています。
-
 - アクセス: http://localhost:8000
 - 初回ログイン: `admin@local` / `admin123`
 
-
 ---
-
-## Kubernetes版 (Helm / Kustomize) (ベータ版)
-
-本番・複数ノード・HA 構成向け。GPU 配置によって 3 モードから選択。
-
-| モード | 用途 | 特徴 |
-|---|---|---|
-| `vllm-in-cluster` | クラスタ内 GPU ノード | 統合運用、`nvidia.com/gpu` ラベル必須 |
-| `vllm-external` | クラスタ外 GPU マシン | 既存 GPU 資産活用、ExternalName Service で名前解決 |
-| `vllm-managed` | マネージド推論 API (Modal / RunPod / Anyscale 等) | GPU インフラ不要、OpenAI 互換エンドポイント |
-
-### Helm でインストール (例: 外部 GPU モード)
-
-```bash
-kubectl create namespace digitalbase
-
-# Postgres 認証情報
-kubectl -n digitalbase create secret generic digitalbase-postgres-creds \
-  --from-literal=POSTGRES_USER=digitalbase \
-  --from-literal=POSTGRES_PASSWORD=$(openssl rand -hex 16) \
-  --from-literal=POSTGRES_DB=digitalbase
-
-# ライセンスファイル
-kubectl -n digitalbase create secret generic digitalbase-license \
-  --from-file=license.lic=./license.lic
-
-# Helm install
-helm install digitalbase ./deploy/helm/digitalbase -n digitalbase \
-  --set image.edition=vllm \
-  --set image.tag=1 \
-  --set vllm.mode=external \
-  --set vllm.external.chatUrl=http://gpu-host.internal:8080 \
-  --set vllm.external.embedUrl=http://gpu-host.internal:8081
-```
-
-### Kustomize でインストール
-
-```bash
-kubectl apply -k deploy/k8s/overlays/vllm-external -n digitalbase
-```
-
-### 同梱ファイル
-
-```
-deploy/
-├── helm/digitalbase/              # Helm chart (3 モードを values で切替)
-│   ├── Chart.yaml
-│   ├── values.yaml                # 全設定項目
-│   └── templates/                 # api / postgres / whisper / vllm
-└── k8s/                           # Kustomize マニフェスト
-    ├── base/                      # postgres / whisper / api 共通部
-    └── overlays/                  # 3 モード分の overlay
-        ├── vllm-in-cluster/
-        ├── vllm-external/
-        └── vllm-managed/
-```
-
-### システム要件 (Pod ごとの目安)
-
-| Pod | CPU 推奨 | メモリ推奨 | ストレージ |
-|---|---|---|---|
-| API + UI | 2 core | 2 GB | 5 GB |
-| Postgres + pgvector | 2 core | 4 GB | 50 GB+ (RAG 量に依存) |
-| Whisper (任意) | 4 core | 6 GB | base モデル 74 MB |
-| vLLM (in-cluster 時) | – | – | VRAM 4-24 GB (モデルサイズ依存) |
-
-vLLM の VRAM 目安:
-
-| モデル | VRAM | GPU 例 |
-|---|---|---|
-| 1〜2B | 4 GB+ | T4 / RTX 4060 |
-| 4B | 8 GB+ | RTX 4070 / L4 |
-| 7〜9B | 16 GB+ | RTX 4080 / A10G |
-| 13〜30B (量子化) | 24 GB+ | RTX 4090 / A100 40GB |
-
-`gpu_memory_utilization` を 0.55 (chat) + 0.35 (embed) = 0.90 に分割すると 1 GPU で chat + embedding 共存可。
-
----
-
-## ライセンス比較
-
-| 項目 | Subscription | Perpetual |
-|------|---------------------|---------------------|
-| ライセンスチェック | 有効期限 | Hardware UUID |
-| ライセンスタイプ | サブスクリプション | 永続 |
-| 推奨配備 | **Docker / K8s** | バイナリ単体 (1 ノード) |
-
-> **K8s / Docker 配備は Subscription 推奨**: Pod 再スケジュール / スケールアウトで Hardware UUID が変動するため、Perpetual だと構成上の制約大。Subscription なら任意ノードで起動可、ローリングアップデートも問題なし。
 
 #### Docker でのライセンス mount
 
