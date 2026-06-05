@@ -1,3 +1,9 @@
+# =============================================================================
+# ⚠️ DEPRECATED / EOL — 旧 digitalbase-ollama / digitalbase-vllm イメージ前提。
+# 現行は単一イメージ lmlight/digitalbase:latest (edition は .env の LLM_BACKEND)。
+# 最新の Docker 手順は install-docker.sh / README を参照。
+# =============================================================================
+
 # DigitalBase – Ollama Edition
 #
 # Brings up:
@@ -43,7 +49,7 @@ services:
     restart: unless-stopped
 
   api:
-    image: lmlight/digitalbase-ollama:${IMAGE_TAG:-1}
+    image: lmlight/digitalbase:${IMAGE_TAG:-1}
     env_file: .env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-digitalbase}:${POSTGRES_PASSWORD:-digitalbase}@postgres:5432/${POSTGRES_DB:-digitalbase}

@@ -1,4 +1,10 @@
 # =============================================================================
+# ⚠️ DEPRECATED / EOL — 旧 digitalbase-ollama / digitalbase-vllm イメージ前提。
+# 現行は単一イメージ lmlight/digitalbase:latest (edition は .env の LLM_BACKEND)。
+# 最新の Docker 手順は install-docker.sh / README を参照。
+# =============================================================================
+
+# =============================================================================
 # DigitalBase — Docker Compose (vLLM Edition, GPU 必須)
 # =============================================================================
 # 前提:
@@ -14,7 +20,7 @@
 
 services:
   api:
-    image: lmlight/digitalbase-vllm:latest
+    image: lmlight/digitalbase:latest
     container_name: db-vllm
     env_file:
       - .env

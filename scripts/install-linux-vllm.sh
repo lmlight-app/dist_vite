@@ -3,7 +3,7 @@
 set -e
 
 BASE_URL="${DB_BASE_URL:-https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-latest}"
-INSTALL_DIR="${DB_INSTALL_DIR:-$HOME/.local/db-vllm}"
+INSTALL_DIR="${DB_INSTALL_DIR:-$HOME/.local/db}"
 ARCH="$(uname -m)"
 case "$ARCH" in x86_64|amd64) ARCH="amd64" ;; aarch64|arm64) ARCH="arm64" ;; esac
 
@@ -13,10 +13,10 @@ mkdir -p "$INSTALL_DIR"
 
 [ -f "$INSTALL_DIR/stop.sh" ] && "$INSTALL_DIR/stop.sh" 2>/dev/null || true
 
-# Download vLLM backend binary (onefile, ~170MB)
-echo " Downloading vLLM backend..."
+# Download unified backend binary (= api/ 統一、LLM_BACKEND=vllm で vllm mode)
+echo " Downloading AI Server backend..."
 
-BINARY_URL="$BASE_URL/lmlight-vite-vllm-linux-$ARCH"
+BINARY_URL="$BASE_URL/lmlight-vite-linux-$ARCH"
 
 if command -v wget &>/dev/null; then
   wget --show-progress --timeout=600 --tries=3 "$BINARY_URL" -O "$INSTALL_DIR/api"
@@ -94,46 +94,80 @@ echo "✅ Python venv ready"
 # AI Server Configuration (vLLM Edition)
 # =============================================================================
 
-# ── Database ────────────────────────────────────────────────────────────────
+# Backend selection (= unified codebase で env で切替)
+LLM_BACKEND=vllm
+
+# Python path for vLLM (auto-configured by installer)
+VLLM_PYTHON=$INSTALL_DIR/venv/bin/python
+
+# PostgreSQL Database
 DATABASE_URL=postgresql://digitalbase:digitalbase@localhost:5432/digitalbase
 
-# ── vLLM Runtime ────────────────────────────────────────────────────────────
-VLLM_PYTHON=$INSTALL_DIR/venv/bin/python
+# =============================================================================
+# vLLM Server URLs
+# =============================================================================
 VLLM_BASE_URL=http://localhost:8080
 VLLM_EMBED_BASE_URL=http://localhost:8081
+# Optional: Separate vision server (leave empty to use chat server for vision)
 # VLLM_VISION_BASE_URL=http://localhost:8082
+
+# =============================================================================
+# vLLM Auto-Start Configuration
+# When enabled, API will automatically start vLLM servers on startup.
+# First run requires network to download models from HuggingFace.
+# Models are cached at ~/.cache/huggingface/hub/
+# =============================================================================
 VLLM_AUTO_START=true
 
-# ── vLLM Models ─────────────────────────────────────────────────────────────
-VLLM_CHAT_MODEL=Qwen/Qwen3.5-35B-A3B
+# Models (HuggingFace model IDs)
+# 軽量 default = Qwen3-4B (= 4B params, 32K context, 24GB GPU で余裕、PoC 用)
+# 上位:   Qwen/Qwen3-8B (= ~16GB), Qwen/Qwen3.5-35B-A3B (= 大型 MoE、>24GB)
+# 最軽量: Qwen/Qwen3-1.7B (= ~4GB、low-end GPU 可)
+VLLM_CHAT_MODEL=Qwen/Qwen3-4B
 VLLM_EMBED_MODEL=Qwen/Qwen3-Embedding-0.6B
+# Optional: Separate vision model (requires VLLM_VISION_BASE_URL)
 # VLLM_VISION_MODEL=Qwen/Qwen2.5-VL-7B-Instruct
 
-# ── vLLM GPU ────────────────────────────────────────────────────────────────
+# GPU Configuration
+# VLLM_TENSOR_PARALLEL: Number of GPUs for tensor parallelism (default: 1)
+# VLLM_GPU_MEMORY_UTILIZATION_{CHAT,EMBED,VISION}: Per-server GPU memory ratio
+#   Unset = vLLM default (0.9), set when running multiple servers on same GPU
+#   2-server (chat + embed):  0.70 + 0.10 = 0.80
+#   3-server (+ vision):      0.35 + 0.10 + 0.25 = 0.70
+# VLLM_MAX_MODEL_LEN: Max context length (empty = model default)
 VLLM_TENSOR_PARALLEL=1
 VLLM_GPU_MEMORY_UTILIZATION_CHAT=0.70
 VLLM_GPU_MEMORY_UTILIZATION_EMBED=0.10
 # VLLM_GPU_MEMORY_UTILIZATION_VISION=0.25
 # VLLM_MAX_MODEL_LEN=4096
 
-# ── vLLM Extra Args ─────────────────────────────────────────────────────────
-# VLLM_REASONING_PARSER=qwen3
+# Additional vLLM arguments (space-separated, passed directly to vllm serve)
+# Examples: --enforce-eager, --enable-prefix-caching, --quantization awq, --dtype half
+#VLLM_REASONING_PARSER=qwen3 
 # VLLM_EXTRA_ARGS_CHAT=--enforce-eager --enable-prefix-caching
 # VLLM_EXTRA_ARGS_EMBED=--enforce-eager
 # VLLM_EXTRA_ARGS_VISION=--enforce-eager
 
-# ── Whisper Transcription ───────────────────────────────────────────────────
+# =============================================================================
+# Whisper Transcription (GPU auto-detect)
+# Models are downloaded automatically on first use to ~/.cache/whisper/
+# Available: tiny, base, small, medium, large
+# =============================================================================
 WHISPER_MODEL=base
 
-# ── Server ──────────────────────────────────────────────────────────────────
+# =============================================================================
+# API Server Configuration
+# =============================================================================
 API_HOST=0.0.0.0
 API_PORT=8000
 
-# ── Authentication ──────────────────────────────────────────────────────────
+# =============================================================================
+# Authentication
+# =============================================================================
 JWT_SECRET=$(openssl rand -hex 32)
 AUTH_MODE=local
 
-# ── LDAP (AUTH_MODE=ldap) ───────────────────────────────────────────────────
+# LDAP (AUTH_MODE=ldap)
 # LDAP_HOST=your-ad-server.company.local
 # LDAP_PORT=389
 # LDAP_USE_SSL=false
@@ -142,15 +176,21 @@ AUTH_MODE=local
 # LDAP_BIND_DN=
 # LDAP_BIND_PASSWORD=
 
-# ── OIDC / Azure AD (AUTH_MODE=oidc) ────────────────────────────────────────
+# OIDC / Azure AD (AUTH_MODE=oidc)
 # OIDC_CLIENT_ID=
 # OIDC_CLIENT_SECRET=
 # OIDC_TENANT_ID=
 
-# ── Offline Mode ────────────────────────────────────────────────────────────
+# =============================================================================
+# Offline Mode
+# After models are downloaded, uncomment to run without internet.
+# Not needed if using local model paths (e.g. /path/to/model).
+# =============================================================================
 # HF_HUB_OFFLINE=1
 
-# ── License ─────────────────────────────────────────────────────────────────
+# =============================================================================
+# License Configuration
+# =============================================================================
 LICENSE_FILE_PATH=$INSTALL_DIR/license.lic
 
 # File Storage (pipeline uploads/outputs)
@@ -214,7 +254,7 @@ if ! command -v nvidia-smi &>/dev/null; then
 fi
 
 # Stop existing
-pkill -f "db-vllm.*api" 2>/dev/null; sleep 1
+pkill -f "db.*api" 2>/dev/null; sleep 1
 
 echo "🚀 Starting AI Server (vLLM Edition)..."
 
@@ -249,7 +289,7 @@ chmod +x "$INSTALL_DIR/start.sh"
 cat > "$INSTALL_DIR/stop.sh" << 'EOF'
 #!/bin/bash
 # Kill start.sh first (which will trigger its trap to kill API/Web)
-pkill -f "db-vllm/start\.sh" 2>/dev/null
+pkill -f "db/start\.sh" 2>/dev/null
 sleep 1
 # Clean up any remaining processes
 pkill -f "\./api$" 2>/dev/null
@@ -257,23 +297,23 @@ echo "Stopped"
 EOF
 chmod +x "$INSTALL_DIR/stop.sh"
 
-# Create db-vllm CLI script
-cat > "$INSTALL_DIR/db-vllm" << 'EOF'
+# Create db CLI script
+cat > "$INSTALL_DIR/db" << 'EOF'
 #!/bin/bash
-DB_HOME="${DB_HOME:-$HOME/.local/db-vllm}"
+DB_HOME="${DB_HOME:-$HOME/.local/db}"
 case "$1" in
     start) "$DB_HOME/start.sh" ;;
     stop)  "$DB_HOME/stop.sh" ;;
-    *)     echo "Usage: db-vllm {start|stop}"; exit 1 ;;
+    *)     echo "Usage: db {start|stop}"; exit 1 ;;
 esac
 EOF
-chmod +x "$INSTALL_DIR/db-vllm"
+chmod +x "$INSTALL_DIR/db"
 
 # Create symlink to /usr/local/bin (requires sudo)
-sudo ln -sf "$INSTALL_DIR/db-vllm" /usr/local/bin/db-vllm 2>/dev/null || echo "⚠️  Run: sudo ln -sf $INSTALL_DIR/db-vllm /usr/local/bin/db-vllm"
+sudo ln -sf "$INSTALL_DIR/db" /usr/local/bin/db 2>/dev/null || echo "⚠️  Run: sudo ln -sf $INSTALL_DIR/db /usr/local/bin/db"
 
 echo ""
-echo "Done. Edit $INSTALL_DIR/.env then run: db-vllm start"
+echo "Done. Edit $INSTALL_DIR/.env then run: db start"
 echo ""
 echo "Note: vLLM requires NVIDIA GPU with CUDA."
 echo "      First run will download models from HuggingFace (~3GB)."

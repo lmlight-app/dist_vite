@@ -20,11 +20,11 @@ ASSETS=(
   "lmlight-vite-windows-amd64.exe.sha256"
   "ai-server-installer-windows.exe"
   "ai-server-installer-windows.exe.sha256"
-  # vLLM edition
-  "lmlight-vite-vllm-linux-amd64"
-  "lmlight-vite-vllm-linux-amd64.sha256"
-  "lmlight-vite-vllm-linux-arm64"
-  "lmlight-vite-vllm-linux-arm64.sha256"
+  # vLLM edition — 統一binary化により廃止 (install-linux-vllm.sh は lmlight-vite-linux-* + LLM_BACKEND=vllm を使用)
+  # "lmlight-vite-vllm-linux-amd64"
+  # "lmlight-vite-vllm-linux-amd64.sha256"
+  # "lmlight-vite-vllm-linux-arm64"
+  # "lmlight-vite-vllm-linux-arm64.sha256"
 )
 
 # Resolve actual tag name if "latest"

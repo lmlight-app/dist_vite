@@ -1,11 +1,13 @@
+> ⚠️ **DEPRECATED / EOL** — 旧 `digitalbase-ollama` / `digitalbase-vllm` イメージ前提の旧手順です。現行は単一イメージ `lmlight/digitalbase:latest`（edition は `.env` の `LLM_BACKEND` で切替）+ `install-docker.sh`。最新は [README](README.md) を参照。
+
 # Docker / Kubernetes
 
 API + UI を 1 コンテナに同梱、`linux/amd64` / `linux/arm64` 両対応。
 
 | イメージ | LLM バックエンド | 推奨用途 |
 |---|---|---|
-| `lmlight/digitalbase-ollama:latest` | Ollama | CPU/GPU 混在、軽量モデル中心 (≤7B) |
-| `lmlight/digitalbase-vllm:latest` | vLLM | NVIDIA GPU、高スループット、マルチテナント |
+| `lmlight/digitalbase:latest` | Ollama | CPU/GPU 混在、軽量モデル中心 (≤7B) |
+| `lmlight/digitalbase:latest` | vLLM | NVIDIA GPU、高スループット、マルチテナント |
 
 タグ運用:
 
@@ -33,7 +35,7 @@ LLM 推論 / 音声書起 / DB はコンテナ外に分離する設計。
 ## Ollama 版
 
 ```bash
-docker pull lmlight/digitalbase-ollama:latest
+docker pull lmlight/digitalbase:latest
 
 docker run -d \
   --name db \
@@ -44,7 +46,7 @@ docker run -d \
   -e AUTH_MODE=local \
   -v ~/.local/db/license.lic:/app/license.lic:ro \
   --restart unless-stopped \
-  lmlight/digitalbase-ollama:latest
+  lmlight/digitalbase:latest
 ```
 
 ## vLLM 版（GPU）
@@ -52,7 +54,7 @@ docker run -d \
 vLLM サーバー本体はコンテナ外で運用。コンテナは API のみ。
 
 ```bash
-docker pull lmlight/digitalbase-vllm:latest
+docker pull lmlight/digitalbase:latest
 
 docker run -d \
   --name db-vllm \
@@ -65,7 +67,7 @@ docker run -d \
   -e AUTH_MODE=local \
   -v ~/.local/db-vllm/license.lic:/app/license.lic:ro \
   --restart unless-stopped \
-  lmlight/digitalbase-vllm:latest
+  lmlight/digitalbase:latest
 ```
 
 ## docker-compose (Postgres + Whisper 込み)
@@ -90,7 +92,7 @@ services:
     restart: unless-stopped
 
   api:
-    image: lmlight/digitalbase-vllm:latest
+    image: lmlight/digitalbase:latest
     env_file: .env
     volumes:
       - ./license.lic:/app/license.lic:ro
@@ -163,7 +165,7 @@ readinessProbe:
 docker logs db                                              # ログ
 docker stop db                                              # 停止
 docker start db                                             # 起動
-docker pull lmlight/digitalbase-ollama:latest && docker restart db   # アップデート
+docker pull lmlight/digitalbase:latest && docker restart db   # アップデート
 ```
 
 - アクセス: http://localhost:8000
@@ -173,8 +175,8 @@ docker pull lmlight/digitalbase-ollama:latest && docker restart db   # アップ
 
 | 旧 | 新 |
 |---|---|
-| `lmlight/lmlight-vite:latest` | `lmlight/digitalbase-ollama:latest` |
-| `lmlight/lmlight-vllm-vite:latest` | `lmlight/digitalbase-vllm:latest` |
+| `lmlight/lmlight-vite:latest` | `lmlight/digitalbase:latest` |
+| `lmlight/lmlight-vllm-vite:latest` | `lmlight/digitalbase:latest` |
 
 設定値・データ互換性あり、イメージ名差し替えで移行可。
 
