@@ -1,6 +1,6 @@
 # DigitalBase 利用マニュアル
 
-オンプレ AI 業務基盤。バックエンドは単一の `api`（API + frontend 同梱）に統合済みで、native は `~/.local/db` に1バイナリ、Docker は1イメージで配備。**Ollama / vLLM の切替は `.env` の `LLM_BACKEND` だけ**で決まり、運用コマンドは `db`（native）/ `db-docker`（Docker）に統一されています。
+オンプレ AI 業務基盤。バックエンドは単一の `api`（API + frontend 同梱）に統合済みで、native は `~/.local/db` に1バイナリ、Docker は1イメージで配備。**vLLM / Ollama の切替は `.env` の `LLM_BACKEND` だけ**で決まります。運用は native が `db` コマンド、Docker は素の `docker`（コンテナ名 `digitalbase-app`）。
 
 ---
 
@@ -12,10 +12,10 @@
 | macOS | `install-macos.sh` | Ollama | `~/.local/db` |
 | Windows | `install-windows.ps1` | Ollama | `%LOCALAPPDATA%\db` |
 | Linux + GPU | `install-linux-vllm.sh` | vLLM | `~/.local/db` |
-| Docker | `install-docker.sh` | Ollama / vLLM | `~/.local/db`（`/app/data` に mount） |
-| Kubernetes | Docker Hub の image を pull | Ollama / vLLM | 任意（Secret + PVC） |
+| Docker | `install-docker.sh` | vLLM / Ollama | `~/digitalbase`（`/app/data` に mount） |
+| Kubernetes | Docker Hub の image を pull | vLLM / Ollama | 任意（Secret + PVC） |
 
-> native は単一バイナリ、Docker は単一 image。edition は `.env`（`LLM_BACKEND=ollama|vllm`）で決まる。
+> native は単一バイナリ、Docker は単一 image。edition は `.env`（`LLM_BACKEND=vllm|ollama`）で決まる（Docker / GPU は **vllm 既定**、native デスクトップは ollama）。
 
 ### Linux
 
@@ -54,17 +54,49 @@ GPU 必須、初回起動時に HuggingFace から model download。native Ollam
 ### Docker
 
 ```bash
-# Ollama 版
+# vLLM 版 (= 既定)
 curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-docker.sh | bash
 
-# vLLM 版 (= EDITION を bash に渡す)
-curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-docker.sh | EDITION=vllm bash
+# Ollama 版
+curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-docker.sh | EDITION=ollama bash
 ```
 
-- データ実体は `~/.local/db`（= `db` dir）に置き、container の `/app/data` に mount。`.env` も同 dir。
+- データ実体は **自分の dir**（既定 `~/digitalbase`、`DB_INSTALL_DIR` で変更可）に置き、container の `/app/data` に mount。`.env` も同 dir。
 - PostgreSQL(pgvector) を `digitalbase-postgres` container として同 network で同梱起動。
-- 操作: `db-docker {start|stop|restart|logs|status|pull|upload-license}`。
-- image: `lmlight/digitalbase:latest`（Docker Hub。Ollama / vLLM 共通、edition は `.env` の `LLM_BACKEND` で決まる）。
+- 操作: 素の `docker`（`docker logs -f digitalbase-app` / `docker stop digitalbase-app` / `docker start digitalbase-app`）。
+- image: `lmlight/digitalbase:latest`（Docker Hub。vLLM / Ollama 共通、edition は `.env` の `LLM_BACKEND` で決まる）。
+
+> **`install-docker.sh` が自動でやること**（＝下の手動 docker run との差分）:
+> ① image を `docker pull` ② `~/digitalbase/.env` を**自動生成**（`JWT_SECRET` / `OAUTH_ENCRYPTION_KEY` も生成）③ `digitalbase-net` network 作成 ④ **PostgreSQL(pgvector) container を起動 + DB bootstrap**（`digitalbase` user/DB 作成 + `CREATE EXTENSION vector`）⑤ app container を `docker run` ⑥ license 配置を案内。
+> 手動 `docker run` は **①③④⑥を自分でやる版**（外部の PostgreSQL+pgvector / LLM を用意し、DB bootstrap・`.env`・license を自前で準備して image を起動するだけ）。
+
+#### 手動 docker run（上級者 / image だけで動かす）
+
+`install-docker.sh` を使わない場合。**外部に PostgreSQL(5432, pgvector) と vLLM(8080/8081) または Ollama(11434)** を用意し、**DB は §3 の bootstrap（user/DB 作成 + `CREATE EXTENSION vector`）を済ませておく**こと（イメージは PostgreSQL/LLM を同梱しない）。
+
+```bash
+mkdir digitalbase && cd digitalbase
+cat > .env <<EOF
+LLM_BACKEND=vllm
+DATABASE_URL=postgresql://digitalbase:digitalbase@host.docker.internal:5432/digitalbase
+VLLM_BASE_URL=http://host.docker.internal:8080
+VLLM_EMBED_BASE_URL=http://host.docker.internal:8081
+JWT_SECRET=$(openssl rand -hex 32)
+OAUTH_ENCRYPTION_KEY=$(openssl rand -hex 32)
+AUTH_MODE=local
+EOF
+cp /path/to/license.lic ./license.lic
+
+docker run -d --name db \
+  -p 8000:8000 \
+  --env-file .env \
+  -v "$PWD":/app/data \
+  --add-host=host.docker.internal:host-gateway \
+  --restart unless-stopped \
+  lmlight/digitalbase:latest
+```
+
+schema / table / 初期 admin user は起動時に自動作成。アクセス: http://localhost:8000 → `admin@local` / `admin123`。Ollama 版は `LLM_BACKEND=ollama` + `OLLAMA_BASE_URL=http://host.docker.internal:11434` に変更。
 
 ### Kubernetes
 
@@ -81,24 +113,9 @@ lmlight/digitalbase:latest
 `.env` ファイル位置:
 - Linux / macOS: `~/.local/db/.env`
 - Windows: `%LOCALAPPDATA%\db\.env`
-- Docker: `~/.local/db/.env`（`install-docker.sh` が自動生成）
+- Docker: `~/digitalbase/.env`（`install-docker.sh` が自動生成、`DB_INSTALL_DIR` で変更可）
 
-### Linux / macOS / Windows (= Ollama 版)
-
-| 環境変数 | 説明 | デフォルト |
-|---|---|---|
-| `LLM_BACKEND` | バックエンド種別 | `ollama` |
-| `OLLAMA_BASE_URL` | Ollama サーバ URL | `http://localhost:11434` |
-| `OLLAMA_AUTO_START` | 起動時 Ollama daemon を spawn | `true` (= install script default) |
-| `LLM_CONTEXT_LENGTH` | context window 上限 (= 両 backend 共通) | 未設定 (model default) |
-| `DATABASE_URL` | PostgreSQL 接続文字列 | install script が自動生成 |
-| `LICENSE_FILE_PATH` | ライセンス path | `~/.local/db/license.lic` |
-| `API_HOST` / `API_PORT` | bind / port | `0.0.0.0` / `8000` |
-| `JWT_SECRET` | JWT 署名 (= 自動生成、再生成すると既存 session 無効) | install 時 random |
-| `OAUTH_ENCRYPTION_KEY` | OAuth 連携 token の暗号化鍵 (= 変更すると既存連携が復号不能。再起動 / 再配置で固定必須) | Docker は自動生成 / native・k8s は手動設定 |
-| `AUTH_MODE` | 認証: `local` / `ldap` / `oidc` | `local` |
-
-### vLLM 版
+### vLLM 版（= 既定の前提。GPU / Docker）
 
 | 環境変数 | 説明 | デフォルト |
 |---|---|---|
@@ -106,17 +123,31 @@ lmlight/digitalbase:latest
 | `VLLM_BASE_URL` | chat server URL | `http://localhost:8080` |
 | `VLLM_EMBED_BASE_URL` | embed server URL | `http://localhost:8081` |
 | `VLLM_VISION_BASE_URL` | vision server URL (= 空なら chat 兼用) | (空) |
-| `VLLM_AUTO_START` | 起動時 vLLM server も spawn | `true` |
+| `VLLM_AUTO_START` | 起動時 vLLM server も spawn | `true`（Docker は `false`） |
 | `VLLM_CHAT_MODEL` | chat model (HuggingFace ID) | `Qwen/Qwen3-4B` (= 4B / 32K context / ~8GB VRAM) |
 | `VLLM_EMBED_MODEL` | embed model | `Qwen/Qwen3-Embedding-0.6B` |
 | `VLLM_PYTHON` | vLLM venv の python path | `~/.local/db/venv/bin/python` |
 | `VLLM_TENSOR_PARALLEL` | GPU 数 (= tensor parallel size) | `1` |
 | `VLLM_GPU_MEMORY_UTILIZATION_CHAT` | chat GPU memory ratio (chat+embed 同 GPU 時) | `0.70` |
 | `VLLM_GPU_MEMORY_UTILIZATION_EMBED` | embed GPU memory ratio | `0.10` |
-| `LLM_CONTEXT_LENGTH` | context window (= `--max-model-len`) | 未設定 (model default = 32K) |
+| `LLM_CONTEXT_LENGTH` | context window (= `--max-model-len`、両 backend 共通) | 未設定 (model default = 32K) |
 | `HF_HUB_OFFLINE` | `1` で network 不要 (= air-gapped、要 model 事前 cache) | (空) |
+| `DATABASE_URL` | PostgreSQL 接続文字列 | install script が自動生成 |
+| `LICENSE_FILE_PATH` | ライセンス path | `~/.local/db/license.lic`（Docker: `/app/data/license.lic`） |
+| `API_HOST` / `API_PORT` | bind / port | `0.0.0.0` / `8000` |
+| `JWT_SECRET` | JWT 署名 (= 自動生成、再生成すると既存 session 無効) | install 時 random |
+| `OAUTH_ENCRYPTION_KEY` | OAuth 連携 token の暗号化鍵 (= 変更すると既存連携が復号不能。固定必須) | install 時 random（native は手動も可） |
+| `AUTH_MODE` | 認証: `local` / `ldap` / `oidc` | `local` |
 
-その他 (DB, License, JWT, AUTH) は Ollama 版と同じ。
+### Ollama 版（native デスクトップ: Linux / macOS / Windows）
+
+| 環境変数 | 説明 | デフォルト |
+|---|---|---|
+| `LLM_BACKEND` | バックエンド種別 | `ollama` |
+| `OLLAMA_BASE_URL` | Ollama サーバ URL | `http://localhost:11434` |
+| `OLLAMA_AUTO_START` | 起動時 Ollama daemon を spawn | `true`（Docker は `false`） |
+
+その他（DB / License / JWT / OAUTH / AUTH / API / LLM_CONTEXT_LENGTH）は vLLM 版と同じ。
 
 ### Docker 版
 
@@ -141,7 +172,25 @@ GEMINI_API_KEY=AIza...
 
 ---
 
-## 3. ライセンス
+## 3. データベース
+
+インストーラ（`install-*.sh`）が触る DB は **bootstrap のみ**（superuser でしかできない 3 つ）:
+
+- DB ユーザー作成（`digitalbase`）
+- データベース作成（`digitalbase`、owner = 同ユーザー）
+- pgvector 拡張の有効化（`CREATE EXTENSION vector`。失敗時は RAG を無効化して続行）
+
+> 接続情報は `.env` の `DATABASE_URL` で変更可。既存 PostgreSQL / RDS 等に向ける場合はここを書き換える（その場合 DBA に上記 3 つを依頼）。
+
+**schema / table / index / 初期 admin user は backend 初回起動時に `migrations.py` が冪等に自動作成**します（アップデート時の列追加・移行も自動。再 install してもデータは保持）。**手動操作は不要。**
+
+schema 構成: `public`（主要 entity）/ `approval` / `helpdesk` / `vision` / `log` / `datalake` / `pgvector`
+
+前提: **PostgreSQL が起動していること**（停止中は bootstrap がスキップされる）。DBA 管理 / air-gapped で table まで事前投入したい場合のみ `db_setup.sh` を superuser で実行（user/DB/拡張 + 全 schema・table・index を一括投入）。
+
+---
+
+## 4. ライセンス
 
 **Hardware UUID 紐付け永続ライセンス** (= 1 device 1 license、有効期限なし、オフライン可)。
 
@@ -158,19 +207,19 @@ GEMINI_API_KEY=AIza...
 `license.lic` を取得後:
 - Linux / macOS: `~/.local/db/license.lic`
 - Windows: `%LOCALAPPDATA%\db\license.lic`
-- Docker: `db-docker upload-license <license.lic>` または admin UI から upload
+- Docker: `~/digitalbase/license.lic` に置いて `docker restart digitalbase-app`、または admin UI から upload
 - Kubernetes: Secret を `/app/data/license.lic` に mount
 
 ---
 
-## 4. 起動・停止 / アクセス
+## 5. 起動・停止 / アクセス
 
 ### コマンド
 
 | Edition | start | stop | logs |
 |---|---|---|---|
-| Linux / macOS / Win (Ollama / vLLM) | `db start` | `db stop` | `db logs` |
-| Docker | `db-docker start` | `db-docker stop` | `db-docker logs` |
+| Linux / macOS / Win (vLLM / Ollama) | `db start` | `db stop` | `db logs` |
+| Docker (`digitalbase-app`) | `docker start digitalbase-app` | `docker stop digitalbase-app` | `docker logs -f digitalbase-app` |
 
 ### アクセス
 
@@ -180,24 +229,24 @@ GEMINI_API_KEY=AIza...
 
 ---
 
-## 5. アップデート
+## 6. アップデート
 
 同じインストールコマンドを再実行 (= データ保持、`.env` 上書きしない)。
 
-Docker は `db-docker pull && db-docker restart`。
+Docker は `docker pull lmlight/digitalbase:latest` → install を再実行（container 作り直し、data は volume 保持）。
 
 ---
 
-## 6. アンインストール
+## 7. アンインストール
 
 ```bash
-# Linux / macOS (Ollama / vLLM 共通)
+# Linux / macOS (vLLM / Ollama 共通)
 rm -rf ~/.local/db && sudo rm -f /usr/local/bin/db
 
 # Docker
-db-docker stop && docker rm digitalbase-app digitalbase-postgres
+docker rm -f digitalbase-app digitalbase-postgres
 docker network rm digitalbase-net
-rm -rf ~/.local/db
+rm -rf ~/digitalbase
 ```
 
 Windows:
@@ -207,7 +256,7 @@ Remove-Item -Recurse -Force "$env:LOCALAPPDATA\db"
 
 ---
 
-## 7. 文字起こし (オプション)
+## 8. 文字起こし (オプション)
 
 ```bash
 # Linux / macOS
@@ -226,7 +275,7 @@ irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-tra
 ### ディレクトリ構造
 
 ```
-~/.local/db/                  # native / Docker 共通 (= data 実体)
+~/.local/db/                  # native の data 実体 (Docker は ~/digitalbase)
 ├── api                       # binary (= API + frontend 同梱、native のみ)
 ├── .env                      # 設定
 ├── license.lic               # ライセンス
@@ -235,11 +284,11 @@ irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-tra
 └── start.sh / stop.sh        # (native のみ)
 ```
 
-Docker は上記 `~/.local/db` を container の `/app/data` に mount。
+Docker は `~/digitalbase`（同様の構成 + `postgres-data/`）を container の `/app/data` に mount。
 
 ### Docker compose (= フルスタック 1 発起動)
 
-詳細手順 + サンプル `docker-compose.yml`: [DOCKER.md](DOCKER.md)
+サンプル: [templates/docker-compose.yml](templates/docker-compose.yml)（vLLM: [docker-compose.vllm.yml](templates/docker-compose.vllm.yml)）
 
 ### ネットワーク詳細 (= LAN / VPN / リバプロ 構成例)
 
@@ -251,5 +300,5 @@ Docker は上記 `~/.local/db` を container の `/app/data` に mount。
 - **Ollama 接続失敗 (= `connection refused`)**: `OLLAMA_AUTO_START=true` で daemon spawn される、または `ollama serve` を別途起動
 - **vLLM 起動失敗 (= ModuleNotFoundError)**: vLLM venv に install 必須、`install-linux-vllm.sh` が venv 構築
 - **embed が 404 / RAG が効かない**: `VLLM_EMBED_BASE_URL` が embed server (:8081) を指しているか確認 (= chat server :8080 は `/v1/embeddings` 非対応)
-- **port 8000 衝突**: `.env` の `API_PORT` を変更 (= Docker は `APP_PORT=8001 db-docker start`)
+- **port 8000 衝突**: `.env` の `API_PORT` を変更 (= Docker は install 時に `APP_PORT=8001` 指定、または `-p 8001:8000` で作り直し)
 - **チャットで 400 context error**: `LLM_CONTEXT_LENGTH` を model に合わせて設定 (= 例: Qwen3-4B なら `32768`)

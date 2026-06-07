@@ -37,8 +37,8 @@ function Show-Usage {
     Write-Host "  .\install-transcribe.ps1 small     # smallモデルをインストール"
     Write-Host ""
     Write-Host "リモート実行:"
-    Write-Host '  irm https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-transcribe.ps1 | iex'
-    Write-Host '  & ([scriptblock]::Create((irm https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install-transcribe.ps1))) -ModelName small'
+    Write-Host '  irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-transcribe.ps1 | iex'
+    Write-Host '  & ([scriptblock]::Create((irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-transcribe.ps1))) -ModelName small'
 }
 
 # large uses v3 version
