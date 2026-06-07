@@ -43,7 +43,7 @@ irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-win
 
 > **pgvector (RAG用)**: 自前ビルド（VC++ Redistributable 不要）を dist_vite Releases から自動配置します。ただし PostgreSQL の `lib` への配置に**管理者が必要**なため、非 admin で実行した場合は RAG が無効化されます（警告のみで続行）。その場合は管理者で再実行するか、**Docker 版（pgvector 同梱、admin 不要）** を利用してください。
 
-### Linux + GPU (vLLM)
+### Linux (vLLM)
 
 ```bash
 curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-linux-vllm.sh | bash
@@ -70,7 +70,7 @@ curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/inst
 > ① image を `docker pull` ② `~/digitalbase/.env` を**自動生成**（`JWT_SECRET` / `OAUTH_ENCRYPTION_KEY` も生成）③ `digitalbase-net` network 作成 ④ **PostgreSQL(pgvector) container を起動 + DB bootstrap**（`digitalbase` user/DB 作成 + `CREATE EXTENSION vector`）⑤ app container を `docker run` ⑥ license 配置を案内。
 > 手動 `docker run` は **①③④⑥を自分でやる版**（外部の PostgreSQL+pgvector / LLM を用意し、DB bootstrap・`.env`・license を自前で準備して image を起動するだけ）。
 
-#### 手動 docker run（上級者 / image だけで動かす）
+#### 手動 docker run
 
 `install-docker.sh` を使わない場合。**外部に PostgreSQL(5432, pgvector) と vLLM(8080/8081) または Ollama(11434)** を用意し、**DB は §3 の bootstrap（user/DB 作成 + `CREATE EXTENSION vector`）を済ませておく**こと（イメージは PostgreSQL/LLM を同梱しない）。
 
@@ -194,14 +194,6 @@ schema 構成: `public`（主要 entity）/ `approval` / `helpdesk` / `vision` /
 
 **Hardware UUID 紐付け永続ライセンス** (= 1 device 1 license、有効期限なし、オフライン可)。
 
-### Hardware UUID 取得
-
-| OS | Command |
-|---|---|
-| macOS | `ioreg -d2 -c IOPlatformExpertDevice \| awk -F\\" '/IOPlatformUUID/{print $4}'` |
-| Linux | `sudo cat /sys/class/dmi/id/product_uuid` |
-| Windows | `(Get-CimInstance Win32_ComputerSystemProduct).UUID` |
-
 ### 配置
 
 `license.lic` を取得後:
@@ -283,22 +275,3 @@ irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-tra
 ├── postgres-data/            # (Docker 版のみ) PG data
 └── start.sh / stop.sh        # (native のみ)
 ```
-
-Docker は `~/digitalbase`（同様の構成 + `postgres-data/`）を container の `/app/data` に mount。
-
-### Docker compose (= フルスタック 1 発起動)
-
-サンプル: [templates/docker-compose.yml](templates/docker-compose.yml)（vLLM: [docker-compose.vllm.yml](templates/docker-compose.vllm.yml)）
-
-### ネットワーク詳細 (= LAN / VPN / リバプロ 構成例)
-
-[NETWORK.md](NETWORK.md)
-
-### Troubleshooting
-
-- **ライセンス認識されない (= "License required" 403)**: `LICENSE_FILE_PATH` の path 確認、Docker / k8s なら `/app/data/license.lic` に mount
-- **Ollama 接続失敗 (= `connection refused`)**: `OLLAMA_AUTO_START=true` で daemon spawn される、または `ollama serve` を別途起動
-- **vLLM 起動失敗 (= ModuleNotFoundError)**: vLLM venv に install 必須、`install-linux-vllm.sh` が venv 構築
-- **embed が 404 / RAG が効かない**: `VLLM_EMBED_BASE_URL` が embed server (:8081) を指しているか確認 (= chat server :8080 は `/v1/embeddings` 非対応)
-- **port 8000 衝突**: `.env` の `API_PORT` を変更 (= Docker は install 時に `APP_PORT=8001` 指定、または `-p 8001:8000` で作り直し)
-- **チャットで 400 context error**: `LLM_CONTEXT_LENGTH` を model に合わせて設定 (= 例: Qwen3-4B なら `32768`)
