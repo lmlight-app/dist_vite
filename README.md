@@ -39,7 +39,9 @@ curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/inst
 irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-windows.ps1 | iex
 ```
 
-依存: PostgreSQL / pgvector / Ollama / FFmpeg / Tesseract（installer が自動 install）
+依存: PostgreSQL / Ollama / FFmpeg / Tesseract（installer が winget で導入。**管理者不要**で通常ユーザーのまま実行）
+
+> **pgvector (RAG用)**: 自前ビルド（VC++ Redistributable 不要）を dist_vite Releases から自動配置します。ただし PostgreSQL の `lib` への配置に**管理者が必要**なため、非 admin で実行した場合は RAG が無効化されます（警告のみで続行）。その場合は管理者で再実行するか、**Docker 版（pgvector 同梱、admin 不要）** を利用してください。
 
 ### Linux + GPU (vLLM)
 
