@@ -87,7 +87,7 @@ AUTH_MODE=local
 EOF
 cp /path/to/license.lic ./license.lic
 
-docker run -d --name db \
+docker run -d --name digitalbase-app \
   -p 8000:8000 \
   --env-file .env \
   -v "$PWD":/app/data \
@@ -191,8 +191,6 @@ schema 構成: `public`（主要 entity）/ `approval` / `helpdesk` / `vision` /
 ---
 
 ## 4. ライセンス
-
-**Hardware UUID 紐付け永続ライセンス** (= 1 device 1 license、有効期限なし、オフライン可)。
 
 ### 配置
 
