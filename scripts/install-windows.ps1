@@ -332,6 +332,25 @@ if (Get-Command psql -ErrorAction SilentlyContinue) {
         Write-Success "pgvector 拡張 有効"
     }
 
+    # 既存テーブル/シーケンスの所有者を app user ($DB_USER) に揃える (= postgres 権限がある今のうちに)。
+    # 旧 install で postgres 所有のまま残った DB を救済し、起動時の migrations.py ($DB_USER 接続) が
+    # ALTER / CREATE INDEX できるようにする。新規 DB は対象ゼロで無害、冪等。
+    $reassignSql = @"
+DO `$`$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT schemaname, tablename FROM pg_tables
+           WHERE schemaname NOT IN ('pg_catalog','information_schema') LOOP
+    EXECUTE format('ALTER TABLE %I.%I OWNER TO %I', r.schemaname, r.tablename, '$DB_USER');
+  END LOOP;
+  FOR r IN SELECT sequence_schema, sequence_name FROM information_schema.sequences
+           WHERE sequence_schema NOT IN ('pg_catalog','information_schema') LOOP
+    EXECUTE format('ALTER SEQUENCE %I.%I OWNER TO %I', r.sequence_schema, r.sequence_name, '$DB_USER');
+  END LOOP;
+END `$`$;
+"@
+    $null = $reassignSql | psql -U postgres -p $DB_PORT -d $DB_NAME 2>$null
+
     $ErrorActionPreference = "Stop"
 
 
