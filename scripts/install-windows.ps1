@@ -262,15 +262,18 @@ if (Get-Command psql -ErrorAction SilentlyContinue) {
     $env:PGPASSWORD = $pgSuperPassword
     Write-Success "PostgreSQL 管理者認証 OK"
 
-    # データベースとユーザー作成 — エラー出力をキャプチャして失敗を可視化
-    # (ロール/DB が既存の場合のエラーメッセージはログ目的で出力)
-    $createUserOut = psql -U postgres -p $DB_PORT -c "CREATE USER `"$DB_USER`" WITH PASSWORD '$DB_PASSWORD';" 2>&1
-    if ($LASTEXITCODE -ne 0 -and $createUserOut -notmatch "already exists") {
-        Write-Error "ユーザー作成失敗: $createUserOut"
+    # データベースとユーザー作成 — 冪等に (= 再 install / アップデート時の "既存" で止めない)。
+    # PG のエラーメッセージは locale 依存 (英語 "already exists" / 日本語 "すでに存在します")
+    # なので、メッセージ照合ではなく pg_roles / pg_database で存在確認してから作成する。
+    $roleExists = psql -U postgres -p $DB_PORT -tAc "SELECT 1 FROM pg_roles WHERE rolname='$DB_USER'" 2>$null
+    if (("$roleExists").Trim() -ne "1") {
+        $createUserOut = psql -U postgres -p $DB_PORT -c "CREATE USER `"$DB_USER`" WITH PASSWORD '$DB_PASSWORD';" 2>&1
+        if ($LASTEXITCODE -ne 0) { Write-Error "ユーザー作成失敗: $createUserOut" }
     }
-    $createDbOut = psql -U postgres -p $DB_PORT -c "CREATE DATABASE `"$DB_NAME`" OWNER `"$DB_USER`";" 2>&1
-    if ($LASTEXITCODE -ne 0 -and $createDbOut -notmatch "already exists") {
-        Write-Error "DB 作成失敗: $createDbOut"
+    $dbExists = psql -U postgres -p $DB_PORT -tAc "SELECT 1 FROM pg_database WHERE datname='$DB_NAME'" 2>$null
+    if (("$dbExists").Trim() -ne "1") {
+        $createDbOut = psql -U postgres -p $DB_PORT -c "CREATE DATABASE `"$DB_NAME`" OWNER `"$DB_USER`";" 2>&1
+        if ($LASTEXITCODE -ne 0) { Write-Error "DB 作成失敗: $createDbOut" }
     }
     $null = psql -U postgres -p $DB_PORT -c "ALTER USER `"$DB_USER`" CREATEDB;" 2>&1
 
