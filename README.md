@@ -53,26 +53,55 @@ GPU 必須、初回起動時に HuggingFace から model download。native Ollam
 
 ### Docker
 
+Docker Hub で配布している単一イメージ `lmlight/digitalbase:latest` を使用します。vLLM 版・Ollama 版は共通のイメージで、エディションは `.env` の `LLM_BACKEND` によって切り替わります。PostgreSQL（pgvector）および LLM（vLLM / Ollama）はイメージに含まれないため、別途用意してください。
+
 ```bash
-# vLLM 版 (= 既定)
+docker pull lmlight/digitalbase:latest
+```
+
+導入方法は次の2通りです。セットアップを自動化する「A. install-docker.sh」と、既存のインフラへ組み込む「B. 手動 docker run」のいずれかを選択します。
+
+#### A. install-docker.sh（推奨）
+
+イメージの取得、PostgreSQL（pgvector）コンテナとアプリケーションコンテナの起動、`.env` の生成までを自動で行います。
+
+```bash
+# vLLM 版（既定）
 curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-docker.sh | bash
 
 # Ollama 版
 curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-docker.sh | EDITION=ollama bash
 ```
 
-- データ実体は **自分の dir**（既定 `~/digitalbase`、`DB_INSTALL_DIR` で変更可）に置き、container の `/app/data` に mount。`.env` も同 dir。
-- PostgreSQL(pgvector) を `digitalbase-postgres` container として同 network で同梱起動。
-- 操作: 素の `docker`（`docker logs -f digitalbase-app` / `docker stop digitalbase-app` / `docker start digitalbase-app`）。
-- image: `lmlight/digitalbase:latest`（Docker Hub。vLLM / Ollama 共通、edition は `.env` の `LLM_BACKEND` で決まる）。
+- データの実体は任意のディレクトリ（既定は `~/digitalbase`、`DB_INSTALL_DIR` で変更可能）に保存し、コンテナの `/app/data` にマウントします。`.env` も同じディレクトリに配置されます。
+- PostgreSQL（pgvector）を `digitalbase-postgres` コンテナとして、同一ネットワーク上に同時に起動します。
+- 起動・停止・ログの確認には標準の `docker` コマンドを使用します（`docker logs -f digitalbase-app` / `docker stop digitalbase-app` / `docker start digitalbase-app`）。
+- スクリプトが自動で行う処理は次のとおりです。① イメージの取得（`docker pull`）、② `~/digitalbase/.env` の生成（`JWT_SECRET` / `OAUTH_ENCRYPTION_KEY` を含む）、③ ネットワーク `digitalbase-net` の作成、④ PostgreSQL（pgvector）コンテナの起動と `digitalbase` ユーザー・データベースの作成（拡張の有効化はアプリケーションが自動実行）、⑤ アプリケーションコンテナの起動（`docker run`）、⑥ ライセンスファイル配置の案内。
 
-> **`install-docker.sh` が自動でやること**（＝下の手動 docker run との差分）:
-> ① image を `docker pull` ② `~/digitalbase/.env` を**自動生成**（`JWT_SECRET` / `OAUTH_ENCRYPTION_KEY` も生成）③ `digitalbase-net` network 作成 ④ **PostgreSQL(pgvector) container を起動 + DB bootstrap**（`digitalbase` user/DB 作成 + `CREATE EXTENSION vector`）⑤ app container を `docker run` ⑥ license 配置を案内。
-> 手動 `docker run` は **①③④⑥を自分でやる版**（外部の PostgreSQL+pgvector / LLM を用意し、DB bootstrap・`.env`・license を自前で準備して image を起動するだけ）。
+#### B. 手動 docker run（既存インフラへの組み込み）
 
-#### 手動 docker run
+上記 A の処理のうち ①③④⑥ を手動で行う方法です。前提として、pgvector を導入済みの PostgreSQL（RAG 用）と、vLLM（ポート 8080 / 8081）または Ollama（ポート 11434）を用意してください。
 
-`install-docker.sh` を使わない場合。**外部に PostgreSQL(5432, pgvector) と vLLM(8080/8081) または Ollama(11434)** を用意し、**DB は §3 の bootstrap（user/DB 作成 + `CREATE EXTENSION vector`）を済ませておく**こと（イメージは PostgreSQL/LLM を同梱しない）。
+拡張の有効化（`CREATE EXTENSION vector`）およびスキーマ・テーブルの作成は、アプリケーションの起動時に自動で実行されます。pgvector 0.5 以降は trusted extension であるため、データベースの所有者である `digitalbase` ユーザーでも実行でき、スーパーユーザーは不要です（実行に失敗した場合は警告のみを出力し、RAG を無効化したうえで起動を継続します）。ただし、ユーザーとデータベースの作成だけは、事前にスーパーユーザーで行う必要があります（アプリケーションはユーザー・データベース自体を作成できません）。
+
+PostgreSQL は、次のいずれかの方法で用意します。
+
+```bash
+# 方法1: PostgreSQL を別途用意しない場合は、pgvector 同梱イメージで起動する
+#        （ユーザー・データベースも環境変数から自動的に作成される）
+docker run -d --name digitalbase-postgres --restart unless-stopped \
+  -e POSTGRES_USER=digitalbase -e POSTGRES_PASSWORD=digitalbase -e POSTGRES_DB=digitalbase \
+  -p 5432:5432 -v "$PWD/pgdata":/var/lib/postgresql/data \
+  pgvector/pgvector:pg16
+
+# 方法2: 既存の PostgreSQL を使用する場合は、pgvector を導入し、ユーザーとデータベースを作成する
+#        （拡張の有効化はアプリケーションの起動時に自動で実行される）
+#    sudo apt install postgresql-17-pgvector   # または brew install pgvector など
+#    psql -U postgres -c "CREATE USER digitalbase WITH PASSWORD 'digitalbase';"
+#    psql -U postgres -c "CREATE DATABASE digitalbase OWNER digitalbase;"
+```
+
+続いて、アプリケーションを起動します。
 
 ```bash
 mkdir digitalbase && cd digitalbase
@@ -96,7 +125,9 @@ docker run -d --name digitalbase-app \
   lmlight/digitalbase:latest
 ```
 
-schema / table / 初期 admin user は起動時に自動作成。アクセス: http://localhost:8000 → `admin@local` / `admin123`。Ollama 版は `LLM_BACKEND=ollama` + `OLLAMA_BASE_URL=http://host.docker.internal:11434` に変更。
+スキーマ・テーブル・初期管理者ユーザーの作成、および pgvector 拡張の有効化は、アプリケーションの起動時に自動で実行されます（PostgreSQL に pgvector が導入済みであることのみが前提です）。起動後、http://localhost:8000 にアクセスし、`admin@local` / `admin123` でログインしてください。Ollama 版を使用する場合は、`.env` を `LLM_BACKEND=ollama` および `OLLAMA_BASE_URL=http://host.docker.internal:11434` に変更します。
+
+> データベースの所有者以外のユーザーで接続しており `CREATE EXTENSION` に失敗する場合のみ、スーパーユーザーで一度 `CREATE EXTENSION vector` を実行してください。
 
 ### Kubernetes
 
