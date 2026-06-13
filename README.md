@@ -23,7 +23,12 @@
 curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-linux.sh | bash
 ```
 
-依存: `sudo apt install -y postgresql postgresql-17-pgvector ffmpeg tesseract-ocr` + `curl -fsSL https://ollama.com/install.sh | sh`
+必要な環境: **PostgreSQL 17**（DB）/ **pgvector**（ベクトル拡張・RAG 用）/ **Ollama**（ローカル LLM ランタイム）/ **Tesseract OCR**（画像・PDF の文字認識）
+
+```bash
+sudo apt install -y postgresql postgresql-17-pgvector tesseract-ocr
+curl -fsSL https://ollama.com/install.sh | sh
+```
 
 ### macOS
 
@@ -31,7 +36,11 @@ curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/inst
 curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-macos.sh | bash
 ```
 
-依存: `brew install postgresql@17 pgvector ollama ffmpeg tesseract`
+必要な環境: **PostgreSQL 17**（DB）/ **pgvector**（ベクトル拡張・RAG 用）/ **Ollama**（ローカル LLM ランタイム）/ **Tesseract OCR**（画像・PDF の文字認識）
+
+```bash
+brew install postgresql@17 pgvector ollama tesseract
+```
 
 ### Windows
 
@@ -39,14 +48,20 @@ curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/inst
 irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-windows.ps1 | iex
 ```
 
-依存: PostgreSQL / Ollama / FFmpeg / Tesseract（installer が winget で導入。**管理者不要**で通常ユーザーのまま実行）
+必要な環境: **PostgreSQL**（DB）/ **pgvector**（ベクトル拡張・RAG 用）/ **Ollama**（ローカル LLM ランタイム）/ **Tesseract OCR**（画像・PDF の文字認識）（installer が winget で導入。**管理者不要**で通常ユーザーのまま実行）
 
-> **pgvector (RAG用)**: 自前ビルド（VC++ Redistributable 不要）を dist_vite Releases から自動配置します。ただし PostgreSQL の `lib` への配置に**管理者が必要**なため、非 admin で実行した場合は RAG が無効化されます（警告のみで続行）。その場合は管理者で再実行するか、**Docker 版（pgvector 同梱、admin 不要）** を利用してください。
+> **pgvector (RAG用)**: 自前ビルド（VC++ Redistributable 不要）を 自動配置します。ただし 非 admin で実行した場合は RAG が無効化されます（警告のみで続行）。その場合は管理者で再実行するか、**Docker 版（pgvector 同梱、admin 不要）** を利用してください。
 
 ### Linux (vLLM)
 
 ```bash
 curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-linux-vllm.sh | bash
+```
+
+必要な環境: **PostgreSQL 17**（DB）/ **pgvector**（ベクトル拡張・RAG 用）/ **Tesseract OCR**（画像・PDF の文字認識）/ **NVIDIA GPU + CUDA**（**vLLM** は script が venv に自動導入）
+
+```bash
+sudo apt install -y postgresql postgresql-17-pgvector tesseract-ocr
 ```
 
 GPU 必須、初回起動時に HuggingFace から model download。native Ollama 版と**同じ `~/.local/db` / `db` コマンド**（統一バイナリ。`.env` の `LLM_BACKEND=vllm` で vLLM 動作）。
@@ -279,6 +294,12 @@ Remove-Item -Recurse -Force "$env:LOCALAPPDATA\db"
 
 ## 8. 文字起こし (オプション)
 
+音声・動画の文字起こしを使う場合のみ。必要な環境: **FFmpeg**（音声・動画処理）
+
+- Linux: `sudo apt install -y ffmpeg`
+- macOS: `brew install ffmpeg`
+- Windows: installer が winget で FFmpeg を導入
+
 ```bash
 # Linux / macOS
 curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-transcribe.sh | bash
@@ -286,8 +307,6 @@ curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/inst
 # Windows
 irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-transcribe.ps1 | iex
 ```
-
-詳細: [TRANSCRIBE.md](TRANSCRIBE.md)
 
 ---
 
