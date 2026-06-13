@@ -23,10 +23,11 @@
 curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-linux.sh | bash
 ```
 
-必要な環境: **PostgreSQL 17**（DB）/ **pgvector**（ベクトル拡張・RAG 用）/ **Ollama**（ローカル LLM ランタイム）/ **Tesseract OCR**（画像・PDF の文字認識）
+必要な環境: **PostgreSQL**（DB、pgvector 対応版なら 16 / 17 いずれも可）/ **pgvector**（ベクトル拡張・RAG 用）/ **Ollama**（ローカル LLM ランタイム）/ **Tesseract OCR**（画像・PDF の文字認識）
 
 ```bash
-sudo apt install -y postgresql postgresql-17-pgvector tesseract-ocr
+sudo apt install -y postgresql tesseract-ocr
+sudo apt install -y postgresql-$(psql -V | grep -oE '[0-9]+' | head -1)-pgvector  # PG のバージョンに合わせる
 curl -fsSL https://ollama.com/install.sh | sh
 ```
 
@@ -36,7 +37,7 @@ curl -fsSL https://ollama.com/install.sh | sh
 curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-macos.sh | bash
 ```
 
-必要な環境: **PostgreSQL 17**（DB）/ **pgvector**（ベクトル拡張・RAG 用）/ **Ollama**（ローカル LLM ランタイム）/ **Tesseract OCR**（画像・PDF の文字認識）
+必要な環境: **PostgreSQL**（DB、pgvector 対応版なら 16 / 17 いずれも可）/ **pgvector**（ベクトル拡張・RAG 用）/ **Ollama**（ローカル LLM ランタイム）/ **Tesseract OCR**（画像・PDF の文字認識）
 
 ```bash
 brew install postgresql@17 pgvector ollama tesseract
@@ -48,7 +49,7 @@ brew install postgresql@17 pgvector ollama tesseract
 irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-windows.ps1 | iex
 ```
 
-必要な環境: **PostgreSQL**（DB）/ **pgvector**（ベクトル拡張・RAG 用）/ **Ollama**（ローカル LLM ランタイム）/ **Tesseract OCR**（画像・PDF の文字認識）（installer が winget で導入。**管理者不要**で通常ユーザーのまま実行）
+必要な環境: **PostgreSQL**（DB、pgvector 対応版）/ **pgvector**（ベクトル拡張・RAG 用）/ **Ollama**（ローカル LLM ランタイム）/ **Tesseract OCR**（画像・PDF の文字認識）（installer が winget で導入。**管理者不要**で通常ユーザーのまま実行）
 
 > **pgvector (RAG用)**: 自前ビルド（VC++ Redistributable 不要）を 自動配置します。ただし 非 admin で実行した場合は RAG が無効化されます（警告のみで続行）。その場合は管理者で再実行するか、**Docker 版（pgvector 同梱、admin 不要）** を利用してください。
 
@@ -58,10 +59,11 @@ irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-win
 curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-linux-vllm.sh | bash
 ```
 
-必要な環境: **PostgreSQL 17**（DB）/ **pgvector**（ベクトル拡張・RAG 用）/ **Tesseract OCR**（画像・PDF の文字認識）/ **NVIDIA GPU + CUDA**（**vLLM** は script が venv に自動導入）
+必要な環境: **PostgreSQL**（DB、pgvector 対応版なら 16 / 17 いずれも可）/ **pgvector**（ベクトル拡張・RAG 用）/ **Tesseract OCR**（画像・PDF の文字認識）/ **NVIDIA GPU + CUDA**（**vLLM** は script が venv に自動導入）
 
 ```bash
-sudo apt install -y postgresql postgresql-17-pgvector tesseract-ocr
+sudo apt install -y postgresql tesseract-ocr
+sudo apt install -y postgresql-$(psql -V | grep -oE '[0-9]+' | head -1)-pgvector  # PG のバージョンに合わせる
 ```
 
 GPU 必須、初回起動時に HuggingFace から model download。native Ollama 版と**同じ `~/.local/db` / `db` コマンド**（統一バイナリ。`.env` の `LLM_BACKEND=vllm` で vLLM 動作）。

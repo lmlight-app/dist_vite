@@ -25,9 +25,10 @@ DigitalBase is an on-premises LLM chat, RAG, and business-automation platform. U
 - Docker / Docker Compose are also supported
 
 ### Multi-LLM engine
-- **Ollama edition**: macOS / Linux / Windows (CPU and GPU both supported)
-- **vLLM edition**: Linux (NVIDIA GPU, high throughput)
-- **Cloud LLM**: OpenAI / Anthropic / Gemini can be used alongside, optionally (enabled via `.env`)
+- **A single binary switches between three LLM backends via `LLM_BACKEND` in `.env`**:
+  - **Ollama**: macOS / Linux / Windows (CPU and GPU both supported)
+  - **vLLM**: Linux (NVIDIA GPU, high throughput)
+  - **Cloud LLM**: OpenAI / Anthropic / Gemini can be used alongside, optionally (enabled via `.env`)
 
 ### Enterprise authentication
 - Local authentication (ID/password, bcrypt hashing)
@@ -81,13 +82,12 @@ DigitalBase is an on-premises LLM chat, RAG, and business-automation platform. U
 ### Pipeline (business automation engine)
 - Combine **no-code operators** to automate business workflows
 - Main operators:
-  - **Cloud storage**: S3, GCS, Azure Blob, Box, Dropbox, OneDrive, SharePoint, Google Drive, Google Sheets
-  - **File transfer**: SFTP, FTP / FTPS, SMB / CIFS, WebDAV / HTTP files, rsync
-  - **API integration**: kintone, Salesforce, freee, MoneyForward, Sansan
-  - **Data platforms**: Snowflake, BigQuery, Elasticsearch, PostgreSQL, REST/HTTP, RSS
-  - **AI processing**: LLM, AI classification, RAG load, document comparison
-  - **Data operations**: filter / set / sort / split / aggregate / merge / cast / dedup / validate / rename keys
-  - **Flow control**: IF / Switch / Loop
+  - **File I/O**: reference any File Hub connection (S3 / GCS / Azure Blob / SFTP / FTP・FTPS / SMB・CIFS / WebDAV / HTTP / Google Drive / OneDrive / Dropbox / Box / SharePoint) directly from "Get file" / "Save file" (connections are shared with File Hub — create once, reuse everywhere), plus Google Sheets, rsync
+  - **API integration**: kintone, Salesforce, freee, MoneyForward, Sansan, HubSpot, SmartHR, Backlog, Notion, Jira, GitHub, GitLab, Shopify, Stripe and more
+  - **Data platforms**: BigQuery, ClickHouse, Snowflake, Elasticsearch, PostgreSQL (DataLake), REST/HTTP, RSS
+  - **AI processing**: LLM transform, AI classification, image understanding with AI (Vision), RAG load / search, document comparison
+  - **Data operations**: filter / set / sort / split / limit / aggregate / merge / compare / cast / dedup / validate / rename keys
+  - **Flow control**: IF / Switch / Loop / Wait
 - Scheduled execution / Webhook trigger / manual execution
 - Execution history and log management, exponential backoff and retry
 
@@ -103,7 +103,7 @@ DigitalBase is an on-premises LLM chat, RAG, and business-automation platform. U
 - Multi-room (per department/project), unread notifications, Webhook notifications
 
 ### SQL agent + Dashboard
-- **Natural-language queries with AI** against external databases (PostgreSQL / MySQL / MariaDB / MS SQL / Oracle / SQLite)
+- **Natural-language queries with AI** against external databases (PostgreSQL / MySQL / MariaDB / MS SQL / Oracle / Amazon Redshift / SQLite)
 - Automatic retrieval of table lists and schemas, data editing, change tracking
 - Connection information is saved and shared
 - **Dashboard (Canvas-style)** — save SQL results as charts, place freely with drag/resize, 5 chart types (bar / line / pie / pivot / scatter) + value display / reference lines / data labels
@@ -258,8 +258,8 @@ curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/inst
 irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-windows.ps1 | iex
 ```
 
-- Install location: `~/.local/db` (vLLM edition: `~/.local/db-vllm`)
-- Start / stop: `db start` / `db stop` (vLLM edition: `db-vllm start` / `db-vllm stop`)
+- Install location: `~/.local/db` (shared by Ollama / vLLM — a single binary switched via `LLM_BACKEND` in `.env`)
+- Start / stop: `db start` / `db stop`
 - Deployment via Docker Compose is also supported
 
 ---
