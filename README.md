@@ -1,6 +1,6 @@
 # DigitalBase 利用マニュアル
 
-オンプレ AI 業務基盤。バックエンドは単一の `api`（API + frontend 同梱）に統合済みで、native は `~/.local/db` に1バイナリ、Docker は1イメージで配備。**vLLM / Ollama の切替は `.env` の `LLM_BACKEND` だけ**で決まります。運用は native が `db` コマンド、Docker は素の `docker`（コンテナ名 `digitalbase-app`）。
+バックエンドは単一の `api`（API + frontend 同梱）に統合されており、Bare Metal は `~/.local/db` に1バイナリ、Docker は1イメージで配備します。vLLM と Ollama の切り替えは `.env` の `LLM_BACKEND` で行います。運用コマンドは Bare Metal が `db`、Docker は標準の `docker`（コンテナ名 `digitalbase-app`）です。
 
 ---
 
@@ -15,7 +15,7 @@
 | Docker | `install-docker.sh` | vLLM / Ollama | `~/digitalbase`（`/app/data` に mount） |
 | Kubernetes | Docker Hub の image を pull | vLLM / Ollama | 任意（Secret + PVC） |
 
-> native は単一バイナリ、Docker は単一 image。edition は `.env`（`LLM_BACKEND=vllm|ollama`）で決まる（Docker / GPU は **vllm 既定**、native デスクトップは ollama）。
+> Bare Metal は単一バイナリ、Docker は単一 image です。edition は `.env` の `LLM_BACKEND`（`vllm` または `ollama`）で決まります。既定は Docker / GPU が vllm、Bare Metal デスクトップが ollama です。
 
 ### Linux
 
@@ -23,7 +23,7 @@
 curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-linux.sh | bash
 ```
 
-必要な環境: **PostgreSQL**（DB、pgvector 対応版なら 16 / 17 いずれも可）/ **pgvector**（ベクトル拡張・RAG 用）/ **Ollama**（ローカル LLM ランタイム）/ **Tesseract OCR**（画像・PDF の文字認識）
+必要な環境: PostgreSQL（DB、pgvector 対応版・16 以降）/ pgvector（ベクトル拡張・RAG 用）/ Ollama（ローカル LLM ランタイム）/ Tesseract OCR（画像・PDF の文字認識）
 
 ```bash
 sudo apt install -y postgresql tesseract-ocr
@@ -37,10 +37,10 @@ curl -fsSL https://ollama.com/install.sh | sh
 curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-macos.sh | bash
 ```
 
-必要な環境: **PostgreSQL**（DB、pgvector 対応版なら 16 / 17 いずれも可）/ **pgvector**（ベクトル拡張・RAG 用）/ **Ollama**（ローカル LLM ランタイム）/ **Tesseract OCR**（画像・PDF の文字認識）
+必要な環境: PostgreSQL（DB、pgvector 対応版・16 以降）/ pgvector（ベクトル拡張・RAG 用）/ Ollama（ローカル LLM ランタイム）/ Tesseract OCR（画像・PDF の文字認識）
 
 ```bash
-brew install postgresql@17 pgvector ollama tesseract
+brew install postgresql@17 pgvector ollama tesseract  # postgresql@16 等、既存の対応版があればそれでよい
 ```
 
 ### Windows
@@ -49,9 +49,9 @@ brew install postgresql@17 pgvector ollama tesseract
 irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-windows.ps1 | iex
 ```
 
-必要な環境: **PostgreSQL**（DB、pgvector 対応版）/ **pgvector**（ベクトル拡張・RAG 用）/ **Ollama**（ローカル LLM ランタイム）/ **Tesseract OCR**（画像・PDF の文字認識）（installer が winget で導入。**管理者不要**で通常ユーザーのまま実行）
+必要な環境: PostgreSQL（DB、pgvector 対応版）/ pgvector（ベクトル拡張・RAG 用）/ Ollama（ローカル LLM ランタイム）/ Tesseract OCR（画像・PDF の文字認識）。いずれも installer が winget で導入します。管理者権限は不要で、通常ユーザーのまま実行できます。
 
-> **pgvector (RAG用)**: 自前ビルド（VC++ Redistributable 不要）を 自動配置します。ただし 非 admin で実行した場合は RAG が無効化されます（警告のみで続行）。その場合は管理者で再実行するか、**Docker 版（pgvector 同梱、admin 不要）** を利用してください。
+> pgvector（RAG 用）は、自前ビルド版（VC++ Redistributable 不要）を自動配置します。ただし非管理者で実行した場合は RAG が無効化されます（警告のみで続行）。その場合は管理者で再実行するか、pgvector 同梱で管理者権限の要らない Docker 版を利用してください。
 
 ### Linux (vLLM)
 
@@ -59,14 +59,14 @@ irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-win
 curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-linux-vllm.sh | bash
 ```
 
-必要な環境: **PostgreSQL**（DB、pgvector 対応版なら 16 / 17 いずれも可）/ **pgvector**（ベクトル拡張・RAG 用）/ **Tesseract OCR**（画像・PDF の文字認識）/ **NVIDIA GPU + CUDA**（**vLLM** は script が venv に自動導入）
+必要な環境: PostgreSQL（DB、pgvector 対応版・16 以降）/ pgvector（ベクトル拡張・RAG 用）/ Tesseract OCR（画像・PDF の文字認識）/ NVIDIA GPU + CUDA（vLLM は script が venv に自動導入します）
 
 ```bash
 sudo apt install -y postgresql tesseract-ocr
 sudo apt install -y postgresql-$(psql -V | grep -oE '[0-9]+' | head -1)-pgvector  # PG のバージョンに合わせる
 ```
 
-GPU 必須、初回起動時に HuggingFace から model download。native Ollama 版と**同じ `~/.local/db` / `db` コマンド**（統一バイナリ。`.env` の `LLM_BACKEND=vllm` で vLLM 動作）。
+GPU が必要で、初回起動時に HuggingFace から model を download します。インストール先や運用コマンドは Bare Metal Ollama 版と同じ（`~/.local/db` / `db` コマンド）で、統一バイナリです。`.env` の `LLM_BACKEND=vllm` によって vLLM として動作します。
 
 ### Docker
 
@@ -163,31 +163,31 @@ lmlight/digitalbase:latest
 - Windows: `%LOCALAPPDATA%\db\.env`
 - Docker: `~/digitalbase/.env`（`install-docker.sh` が自動生成、`DB_INSTALL_DIR` で変更可）
 
-### vLLM 版（= 既定の前提。GPU / Docker）
+### vLLM 版（既定。GPU / Docker 向け）
 
 | 環境変数 | 説明 | デフォルト |
 |---|---|---|
 | `LLM_BACKEND` | バックエンド種別 | `vllm` |
 | `VLLM_BASE_URL` | chat server URL | `http://localhost:8080` |
 | `VLLM_EMBED_BASE_URL` | embed server URL | `http://localhost:8081` |
-| `VLLM_VISION_BASE_URL` | vision server URL (= 空なら chat 兼用) | (空) |
+| `VLLM_VISION_BASE_URL` | vision server URL（空欄なら chat を兼用） | (空) |
 | `VLLM_AUTO_START` | 起動時 vLLM server も spawn | `true`（Docker は `false`） |
-| `VLLM_CHAT_MODEL` | chat model (HuggingFace ID) | `Qwen/Qwen3-4B` (= 4B / 32K context / ~8GB VRAM) |
+| `VLLM_CHAT_MODEL` | chat model (HuggingFace ID) | `Qwen/Qwen3-4B`（4B / 32K context / 約 8GB VRAM） |
 | `VLLM_EMBED_MODEL` | embed model | `Qwen/Qwen3-Embedding-0.6B` |
 | `VLLM_PYTHON` | vLLM venv の python path | `~/.local/db/venv/bin/python` |
-| `VLLM_TENSOR_PARALLEL` | GPU 数 (= tensor parallel size) | `1` |
+| `VLLM_TENSOR_PARALLEL` | GPU 数（tensor parallel size） | `1` |
 | `VLLM_GPU_MEMORY_UTILIZATION_CHAT` | chat GPU memory ratio (chat+embed 同 GPU 時) | `0.70` |
 | `VLLM_GPU_MEMORY_UTILIZATION_EMBED` | embed GPU memory ratio | `0.10` |
-| `LLM_CONTEXT_LENGTH` | context window (= `--max-model-len`、両 backend 共通) | 未設定 (model default = 32K) |
-| `HF_HUB_OFFLINE` | `1` で network 不要 (= air-gapped、要 model 事前 cache) | (空) |
+| `LLM_CONTEXT_LENGTH` | context window（`--max-model-len`。両 backend 共通） | 未設定（model default = 32K） |
+| `HF_HUB_OFFLINE` | `1` で network 不要（air-gapped。model の事前 cache が必要） | (空) |
 | `DATABASE_URL` | PostgreSQL 接続文字列 | install script が自動生成 |
 | `LICENSE_FILE_PATH` | ライセンス path | `~/.local/db/license.lic`（Docker: `/app/data/license.lic`） |
 | `API_HOST` / `API_PORT` | bind / port | `0.0.0.0` / `8000` |
-| `JWT_SECRET` | JWT 署名 (= 自動生成、再生成すると既存 session 無効) | install 時 random |
-| `OAUTH_ENCRYPTION_KEY` | OAuth 連携 token の暗号化鍵 (= 変更すると既存連携が復号不能。固定必須) | install 時 random（native は手動も可） |
+| `JWT_SECRET` | JWT 署名（自動生成。再生成すると既存 session が無効になります） | install 時 random |
+| `OAUTH_ENCRYPTION_KEY` | OAuth 連携 token の暗号化鍵（変更すると既存の連携が復号できなくなるため、固定してください） | install 時 random（Bare Metal は手動設定も可） |
 | `AUTH_MODE` | 認証: `local` / `ldap` / `oidc` | `local` |
 
-### Ollama 版（native デスクトップ: Linux / macOS / Windows）
+### Ollama 版（Bare Metal デスクトップ: Linux / macOS / Windows）
 
 | 環境変数 | 説明 | デフォルト |
 |---|---|---|
@@ -205,13 +205,13 @@ lmlight/digitalbase:latest
 |---|---|
 | `DATABASE_URL` | 同 docker network 内 PostgreSQL → `digitalbase-postgres:5432` |
 | `OLLAMA_BASE_URL` | host の Ollama 参照 → `http://host.docker.internal:11434` |
-| `OLLAMA_AUTO_START` | **`false` 必須** (= 1 container 1 process 原則、container 内 spawn 不可) |
+| `OLLAMA_AUTO_START` | `false`（必須。1 container 1 process が原則で、container 内では spawn できません） |
 | `VLLM_BASE_URL` | 外部 vLLM 参照 → `http://host.docker.internal:8080` |
-| `VLLM_AUTO_START` | **`false` 必須** |
+| `VLLM_AUTO_START` | `false`（必須） |
 | `LICENSE_FILE_PATH` | image ENV 既定 → `/app/data/license.lic`（mount 経由） |
 | `FILES_DIR` | image ENV 既定 → `/app/data/files`（mount 経由） |
 
-Cloud LLM (= OpenAI / Anthropic / Gemini) 利用時はすべての版で:
+Cloud LLM（OpenAI / Anthropic / Gemini）を利用する場合は、すべての版で次を設定します。
 ```
 OPENAI_API_KEY=sk-...
 ANTHROPIC_API_KEY=sk-ant-...
@@ -222,19 +222,19 @@ GEMINI_API_KEY=AIza...
 
 ## 3. データベース
 
-インストーラ（`install-*.sh`）が触る DB は **bootstrap のみ**（superuser でしかできない 3 つ）:
+インストーラ（`install-*.sh`）が DB に対して行うのは bootstrap のみです（superuser でしか実行できない、次の 3 つ）。
 
 - DB ユーザー作成（`digitalbase`）
 - データベース作成（`digitalbase`、owner = 同ユーザー）
 - pgvector 拡張の有効化（`CREATE EXTENSION vector`。失敗時は RAG を無効化して続行）
 
-> 接続情報は `.env` の `DATABASE_URL` で変更可。既存 PostgreSQL / RDS 等に向ける場合はここを書き換える（その場合 DBA に上記 3 つを依頼）。
+> 接続情報は `.env` の `DATABASE_URL` で変更できます。既存の PostgreSQL / RDS 等に向ける場合はここを書き換えてください（その場合は上記 3 つを DBA に依頼します）。
 
-**schema / table / index / 初期 admin user は backend 初回起動時に `migrations.py` が冪等に自動作成**します（アップデート時の列追加・移行も自動。再 install してもデータは保持）。**手動操作は不要。**
+schema / table / index / 初期 admin user は、backend の初回起動時に `migrations.py` が冪等に自動作成します（アップデート時の列追加・移行も自動で、再 install してもデータは保持されます）。手動操作は不要です。
 
 schema 構成: `public`（主要 entity）/ `approval` / `helpdesk` / `vision` / `log` / `datalake` / `pgvector`
 
-前提: **PostgreSQL が起動していること**（停止中は bootstrap がスキップされる）。DBA 管理 / air-gapped で table まで事前投入したい場合のみ `db_setup.sh` を superuser で実行（user/DB/拡張 + 全 schema・table・index を一括投入）。
+前提として、PostgreSQL が起動している必要があります（停止中は bootstrap がスキップされます）。DBA 管理や air-gapped 環境で table まで事前に投入したい場合のみ、`db_setup.sh` を superuser で実行してください（user / DB / 拡張に加えて、全 schema・table・index を一括投入します）。
 
 ---
 
@@ -254,24 +254,26 @@ schema 構成: `public`（主要 entity）/ `approval` / `helpdesk` / `vision` /
 
 ### コマンド
 
-| Edition | start | stop | logs |
-|---|---|---|---|
-| Linux / macOS / Win (vLLM / Ollama) | `db start` | `db stop` | `db logs` |
-| Docker (`digitalbase-app`) | `docker start digitalbase-app` | `docker stop digitalbase-app` | `docker logs -f digitalbase-app` |
+| Edition | start | stop |
+|---|---|---|
+| Linux / macOS / Win (vLLM / Ollama) | `db start` | `db stop` |
+| Docker (`digitalbase-app`) | `docker start digitalbase-app` | `docker stop digitalbase-app` |
+
+ログは、Bare Metal では `db start` を実行した前景に出力されます。Docker では `docker logs -f digitalbase-app` で確認できます。
 
 ### アクセス
 
 - ローカル: http://localhost:8000
 - LAN: 起動時に LAN IP 表示、他 PC / モバイルからアクセス可
-- 初回ログイン: `admin@local` / `admin123` (= ログイン後パスワード変更必須)
+- 初回ログイン: `admin@local` / `admin123`（ログイン後にパスワードの変更が必要です）
 
 ---
 
 ## 6. アップデート
 
-同じインストールコマンドを再実行 (= データ保持、`.env` 上書きしない)。
+同じインストールコマンドを再実行します（データは保持され、`.env` は上書きされません）。
 
-Docker は `docker pull lmlight/digitalbase:latest` → install を再実行（container 作り直し、data は volume 保持）。
+Docker の場合は `docker pull lmlight/digitalbase:latest` を実行してから install を再実行します（container は作り直されますが、data は volume に保持されます）。
 
 ---
 
@@ -296,7 +298,7 @@ Remove-Item -Recurse -Force "$env:LOCALAPPDATA\db"
 
 ## 8. 文字起こし (オプション)
 
-音声・動画の文字起こしを使う場合のみ。必要な環境: **FFmpeg**（音声・動画処理）
+音声・動画の文字起こしを使う場合のみ必要です。必要な環境: FFmpeg（音声・動画処理）
 
 - Linux: `sudo apt install -y ffmpeg`
 - macOS: `brew install ffmpeg`
@@ -317,11 +319,11 @@ irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-tra
 ### ディレクトリ構造
 
 ```
-~/.local/db/                  # native の data 実体 (Docker は ~/digitalbase)
-├── api                       # binary (= API + frontend 同梱、native のみ)
+~/.local/db/                  # Bare Metal の data 実体 (Docker は ~/digitalbase)
+├── api                       # binary (= API + frontend 同梱、Bare Metal のみ)
 ├── .env                      # 設定
 ├── license.lic               # ライセンス
 ├── files/                    # ユーザ file
 ├── postgres-data/            # (Docker 版のみ) PG data
-└── start.sh / stop.sh        # (native のみ)
+└── start.sh / stop.sh        # (Bare Metal のみ)
 ```
