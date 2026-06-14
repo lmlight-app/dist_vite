@@ -178,7 +178,10 @@ lmlight/digitalbase:latest
 | `VLLM_TENSOR_PARALLEL` | GPU 数（tensor parallel size） | `1` |
 | `VLLM_GPU_MEMORY_UTILIZATION_CHAT` | chat GPU memory ratio (chat+embed 同 GPU 時) | `0.70` |
 | `VLLM_GPU_MEMORY_UTILIZATION_EMBED` | embed GPU memory ratio | `0.10` |
+| `VLLM_GPU_MEMORY_UTILIZATION_VISION` | vision GPU memory ratio（vision server 利用時） | (空) |
 | `LLM_CONTEXT_LENGTH` | context window（`--max-model-len`。両 backend 共通） | 未設定（model default = 32K） |
+| `VLLM_REASONING_PARSER` | thinking/reasoning の parser（例 `qwen3`）。未設定なら vLLM default | (空) |
+| `VLLM_EXTRA_ARGS_CHAT` | chat server の追加起動フラグ。**tool calling は要設定**（例 `--enable-auto-tool-choice --tool-call-parser hermes`）。embed/vision 用は `VLLM_EXTRA_ARGS_EMBED` / `VLLM_EXTRA_ARGS_VISION` | (空) |
 | `HF_HUB_OFFLINE` | `1` で network 不要（air-gapped。model の事前 cache が必要） | (空) |
 | `DATABASE_URL` | PostgreSQL 接続文字列 | install script が自動生成 |
 | `LICENSE_FILE_PATH` | ライセンス path | `~/.local/db/license.lic`（Docker: `/app/data/license.lic`） |
