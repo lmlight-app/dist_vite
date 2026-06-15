@@ -26,8 +26,9 @@ curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/inst
 必要な環境: PostgreSQL（DB、pgvector 対応版・16 以降）/ pgvector（ベクトル拡張・RAG 用）/ Ollama（ローカル LLM ランタイム）/ Tesseract OCR（画像・PDF の文字認識）
 
 ```bash
-sudo apt install -y postgresql tesseract-ocr
+sudo apt install -y postgresql tesseract-ocr   # root で動くコンテナ (GMI 等・sudo 未導入) は sudo を外す
 sudo apt install -y postgresql-$(psql -V | grep -oE '[0-9]+' | head -1)-pgvector  # PG のバージョンに合わせる
+# systemd の無いコンテナでは起動も手動: pg_ctlcluster $(ls /etc/postgresql | sort -V | tail -1) main start
 curl -fsSL https://ollama.com/install.sh | sh
 ```
 
@@ -62,8 +63,9 @@ curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/inst
 必要な環境: PostgreSQL（DB、pgvector 対応版・16 以降）/ pgvector（ベクトル拡張・RAG 用）/ Tesseract OCR（画像・PDF の文字認識）/ NVIDIA GPU + CUDA（vLLM は script が venv に自動導入します）
 
 ```bash
-sudo apt install -y postgresql tesseract-ocr
+sudo apt install -y postgresql tesseract-ocr   # root で動くコンテナ (GMI 等・sudo 未導入) は sudo を外す
 sudo apt install -y postgresql-$(psql -V | grep -oE '[0-9]+' | head -1)-pgvector  # PG のバージョンに合わせる
+# systemd の無いコンテナでは起動も手動: pg_ctlcluster $(ls /etc/postgresql | sort -V | tail -1) main start
 ```
 
 GPU が必要で、初回起動時に HuggingFace から model を download します。インストール先や運用コマンドは Bare Metal Ollama 版と同じ（`~/.local/db` / `db` コマンド）で、統一バイナリです。`.env` の `LLM_BACKEND=vllm` によって vLLM として動作します。
@@ -113,9 +115,16 @@ docker run -d --name digitalbase-postgres --restart unless-stopped \
 
 # 方法2: 既存の PostgreSQL を使用する場合は、pgvector を導入し、ユーザーとデータベースを作成する
 #        （拡張の有効化はアプリケーションの起動時に自動で実行される）
-#    sudo apt install postgresql-17-pgvector   # または brew install pgvector など
-#    psql -U postgres -c "CREATE USER digitalbase WITH PASSWORD 'digitalbase';"
-#    psql -U postgres -c "CREATE DATABASE digitalbase OWNER digitalbase;"
+#    # pgvector パッケージ:
+#    sudo apt install postgresql-17-pgvector      # Debian/Ubuntu（root コンテナは sudo 不要）
+#    brew install pgvector                        # macOS (Homebrew)
+#    # ユーザーとデータベースを作成（スーパーユーザーで実行。環境ごとに接続方法が異なる）:
+#    #   Linux:        sudo -u postgres psql -d postgres -c "CREATE USER digitalbase WITH PASSWORD 'digitalbase';"
+#    #   root コンテナ: su postgres -c "psql -d postgres -c \"CREATE USER digitalbase WITH PASSWORD 'digitalbase';\""
+#    #   macOS:        psql -d postgres -c "CREATE USER digitalbase WITH PASSWORD 'digitalbase';"
+#    #                 （Homebrew は OS ユーザーが superuser で "postgres" ロールは無い。
+#    #                   postgres ロールがある環境なら psql -U postgres でも可）
+#    # その後、DATABASE_URL に合わせて CREATE DATABASE digitalbase OWNER digitalbase; も実行
 ```
 
 続いて、アプリケーションを起動します。
