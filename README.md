@@ -26,7 +26,7 @@ curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/inst
 必要な環境: PostgreSQL（DB、pgvector 対応版・16 以降）/ pgvector（ベクトル拡張・RAG 用）/ Ollama（ローカル LLM ランタイム）/ Tesseract OCR（画像・PDF の文字認識）
 
 ```bash
-sudo apt install -y postgresql tesseract-ocr   # root で動くコンテナ (GMI 等・sudo 未導入) は sudo を外す
+sudo apt install -y postgresql tesseract-ocr   # root で動くコンテナ (sudo 未導入) は sudo を外す
 sudo apt install -y postgresql-$(psql -V | grep -oE '[0-9]+' | head -1)-pgvector  # PG のバージョンに合わせる
 # systemd の無いコンテナでは起動も手動: pg_ctlcluster $(ls /etc/postgresql | sort -V | tail -1) main start
 curl -fsSL https://ollama.com/install.sh | sh
@@ -63,7 +63,7 @@ curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/inst
 必要な環境: PostgreSQL（DB、pgvector 対応版・16 以降）/ pgvector（ベクトル拡張・RAG 用）/ Tesseract OCR（画像・PDF の文字認識）/ NVIDIA GPU + CUDA（vLLM は script が venv に自動導入します）
 
 ```bash
-sudo apt install -y postgresql tesseract-ocr   # root で動くコンテナ (GMI 等・sudo 未導入) は sudo を外す
+sudo apt install -y postgresql tesseract-ocr   # root で動くコンテナ (sudo 未導入) は sudo を外す
 sudo apt install -y postgresql-$(psql -V | grep -oE '[0-9]+' | head -1)-pgvector  # PG のバージョンに合わせる
 # systemd の無いコンテナでは起動も手動: pg_ctlcluster $(ls /etc/postgresql | sort -V | tail -1) main start
 ```
@@ -162,6 +162,45 @@ docker run -d --name digitalbase-app \
 ```
 lmlight/digitalbase:latest
 ```
+
+### コンテナ環境で詰まった場合
+
+クラウド GPU コンテナは root 実行・`sudo` なし・systemd なしのことが多く、通常のインストールが途中で止まることがあります。症状ごとの対処は次のとおりです。
+
+**`sudo: command not found` / `sudo -u postgres` が失敗する**
+
+`sudo` を外して実行します。root では `su postgres` 経由でロール / データベースを作成します（install スクリプトは `sudo` の有無を自動判別します。手動で行う場合のみ以下）。
+
+```bash
+su postgres -c "psql -d postgres -c \"CREATE USER digitalbase WITH PASSWORD 'digitalbase';\""
+su postgres -c "psql -d postgres -c \"CREATE DATABASE digitalbase OWNER digitalbase;\""
+```
+
+**`psql: could not connect` / PostgreSQL に接続できない**
+
+systemd が無く起動していない可能性があります。手動で起動します。
+
+```bash
+pg_ctlcluster $(ls /etc/postgresql | sort -V | tail -1) main start
+```
+
+**`nvcc: command not found`（vLLM 版）**
+
+CUDA が PATH に通っていません。PATH に追加し、`.env` にも追記します。
+
+```bash
+export PATH=/usr/local/cuda/bin:$PATH
+```
+
+**ビルド依存が足りない（vLLM 版）**
+
+```bash
+apt install -y build-essential python3-dev ffmpeg ninja-build
+```
+
+**再構成（reconfigure）でデータが消える**
+
+コンテナのストレージは非永続のことがあります。DB データは外部に保持してください（`DATABASE_URL` を外部 PostgreSQL、または永続ボリューム上の PostgreSQL に向ける）。
 
 ---
 
