@@ -17,15 +17,21 @@
 
 > Bare Metal は単一バイナリ、Docker は単一 image です。edition は `.env` の `LLM_BACKEND`（`vllm` または `ollama`）で決まります。既定は Docker / GPU が vllm、Bare Metal デスクトップが ollama です。
 
-### Linux
+### 必要な環境
 
-> 対応 OS: Ubuntu 24.04 以上（glibc 2.39 以上）。配布バイナリは Ubuntu 24.04 でビルドしているため、22.04 以前では glibc 不足で起動しません。コンテナで実行する場合もベースイメージを Ubuntu 24.04 以上にしてください。
+| コンポーネント | 用途 | 備考 |
+|---|---|---|
+| PostgreSQL + pgvector | DB / ベクトル検索（RAG） | pgvector 対応版。PostgreSQL 16 以降 |
+| Ollama | ローカル LLM（Bare Metal 既定） | install 時に導入 |
+| NVIDIA GPU + CUDA | GPU / vLLM 版のみ | vLLM 本体は script が venv に自動導入 |
+| Tesseract OCR | 画像・PDF の文字認識 | 日本語は言語データが必要（apt `tesseract-ocr-jpn` / brew `tesseract-lang` / Windows はインストール時に Japanese 選択） |
+| OS（Linux） | 配布バイナリの動作要件 | Ubuntu 24.04 以上（glibc 2.39）。コンテナもベースを 24.04 以上に |
+
+### Linux
 
 ```bash
 curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-linux.sh | bash
 ```
-
-必要な環境: PostgreSQL（DB、pgvector 対応版・16 以降）/ pgvector（ベクトル拡張・RAG 用）/ Ollama（ローカル LLM ランタイム）/ Tesseract OCR（画像・PDF の文字認識。日本語 OCR には日本語言語データが必要）
 
 ```bash
 sudo apt install -y postgresql tesseract-ocr tesseract-ocr-jpn   # root で動くコンテナ (sudo 未導入) は sudo を外す
@@ -40,10 +46,8 @@ curl -fsSL https://ollama.com/install.sh | sh
 curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-macos.sh | bash
 ```
 
-必要な環境: PostgreSQL（DB、pgvector 対応版・16 以降）/ pgvector（ベクトル拡張・RAG 用）/ Ollama（ローカル LLM ランタイム）/ Tesseract OCR（画像・PDF の文字認識。日本語 OCR には日本語言語データが必要）
-
 ```bash
-brew install postgresql@17 pgvector ollama tesseract tesseract-lang  # postgresql@16 等、既存の対応版があればそれでよい。tesseract-lang は日本語など追加言語データ
+brew install postgresql@17 pgvector ollama tesseract tesseract-lang  # postgresql@16 等、既存の対応版があればそれでよい
 ```
 
 ### Windows
@@ -52,19 +56,15 @@ brew install postgresql@17 pgvector ollama tesseract tesseract-lang  # postgresq
 irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-windows.ps1 | iex
 ```
 
-必要な環境: PostgreSQL（DB、pgvector 対応版）/ pgvector（ベクトル拡張・RAG 用）/ Ollama（ローカル LLM ランタイム）/ Tesseract OCR（画像・PDF の文字認識。日本語 OCR には日本語言語データが必要）。いずれも installer が winget で導入します。管理者権限は不要で、通常ユーザーのまま実行できます。
+必要なソフトは installer が winget で自動導入します。管理者権限は不要で、通常ユーザーのまま実行できます。
 
 > pgvector（RAG 用）は、自前ビルド版（VC++ Redistributable 不要）を自動配置します。ただし非管理者で実行した場合は RAG が無効化されます（警告のみで続行）。その場合は管理者で再実行するか、pgvector 同梱で管理者権限の要らない Docker 版を利用してください。
-
-> 日本語 OCR を使う場合は、Tesseract のインストール時に Japanese 言語データを選択してください（手動導入する場合は [UB-Mannheim 版](https://github.com/UB-Mannheim/tesseract/wiki) のセットアップで「Japanese」にチェック）。
 
 ### Linux (vLLM)
 
 ```bash
 curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-linux-vllm.sh | bash
 ```
-
-必要な環境: Ubuntu 24.04 以上（glibc 2.39 以上）/ PostgreSQL（DB、pgvector 対応版・16 以降）/ pgvector（ベクトル拡張・RAG 用）/ Tesseract OCR（画像・PDF の文字認識。日本語 OCR には日本語言語データが必要）/ NVIDIA GPU + CUDA（vLLM は script が venv に自動導入します）
 
 ```bash
 sudo apt install -y postgresql tesseract-ocr tesseract-ocr-jpn   # root で動くコンテナ (sudo 未導入) は sudo を外す
@@ -96,10 +96,19 @@ curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/inst
 curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-docker.sh | EDITION=ollama bash
 ```
 
-- データの実体は任意のディレクトリ（既定は `~/digitalbase`、`DB_INSTALL_DIR` で変更可能）に保存し、コンテナの `/app/data` にマウントします。`.env` も同じディレクトリに配置されます。
-- PostgreSQL（pgvector）を `digitalbase-postgres` コンテナとして、同一ネットワーク上に同時に起動します。
-- 起動・停止・ログの確認には標準の `docker` コマンドを使用します（`docker logs -f digitalbase-app` / `docker stop digitalbase-app` / `docker start digitalbase-app`）。
-- スクリプトが自動で行う処理は次のとおりです。① イメージの取得（`docker pull`）、② `~/digitalbase/.env` の生成（`JWT_SECRET` / `OAUTH_ENCRYPTION_KEY` を含む）、③ ネットワーク `digitalbase-net` の作成、④ PostgreSQL（pgvector）コンテナの起動と `digitalbase` ユーザー・データベースの作成（拡張の有効化はアプリケーションが自動実行）、⑤ アプリケーションコンテナの起動（`docker run`）、⑥ ライセンスファイル配置の案内。
+スクリプトが自動で行う処理:
+
+1. イメージの取得（`docker pull`）
+2. `.env` の生成（`JWT_SECRET` / `OAUTH_ENCRYPTION_KEY` を含む）
+3. ネットワーク `digitalbase-net` の作成
+4. PostgreSQL（pgvector）コンテナ `digitalbase-postgres` を同ネットワーク上に起動し、`digitalbase` ユーザー・データベースを作成（拡張の有効化はアプリケーションが自動実行）
+5. アプリケーションコンテナの起動（`docker run`）
+6. ライセンスファイル配置の案内
+
+補足:
+
+- データは既定で `~/digitalbase`（`DB_INSTALL_DIR` で変更可）に保存し、コンテナの `/app/data` にマウントします。`.env` も同じディレクトリに置かれます。
+- 起動・停止・ログは標準の `docker` コマンドで操作します（`docker start` / `docker stop` / `docker logs -f digitalbase-app`）。
 
 #### B. 手動 docker run（既存インフラへの組み込み）
 
@@ -359,12 +368,23 @@ Remove-Item -Recurse -Force "$env:LOCALAPPDATA\db"
 - macOS: `brew install ffmpeg`
 - Windows: installer が winget で FFmpeg を導入
 
-```bash
-# Linux / macOS
-curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-transcribe.sh | bash
+Whisper モデルを選んでインストールします（引数なしは `tiny`）。
 
-# Windows
-irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-transcribe.ps1 | iex
+| モデル | サイズ | 目安 |
+|---|---|---|
+| `tiny` | 74MB | 既定・軽量 / 高速 |
+| `base` | 142MB | バランス |
+| `small` | 466MB | 高精度 |
+| `medium` | 1.5GB | 高精度・GPU 推奨 |
+| `large` | 2.9GB | 最高精度・GPU 必須 |
+
+```bash
+# Linux / macOS（モデルを引数で指定。--gpu で GPU 版）
+curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-transcribe.sh | bash -s -- small
+curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-transcribe.sh | bash -s -- small --gpu
+
+# Windows（位置引数でモデル指定）
+& ([scriptblock]::Create((irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-transcribe.ps1))) small
 ```
 
 ---
