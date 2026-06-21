@@ -27,6 +27,8 @@
 | Tesseract OCR | 画像・PDF の文字認識 | 日本語は言語データが必要（apt `tesseract-ocr-jpn` / brew `tesseract-lang` / Windows はインストール時に Japanese 選択） |
 | OS（Linux） | 配布バイナリの動作要件 | Ubuntu 24.04 以上（glibc 2.39）。コンテナもベースを 24.04 以上に |
 
+> root 実行・`sudo` なし・systemd なしのクラウド GPU コンテナで途中停止する場合は、末尾の「トラブルシューティング」を参照してください。
+
 ### Linux
 
 ```bash
@@ -34,9 +36,8 @@ curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/inst
 ```
 
 ```bash
-sudo apt install -y postgresql tesseract-ocr tesseract-ocr-jpn   # root で動くコンテナ (sudo 未導入) は sudo を外す
+sudo apt install -y postgresql tesseract-ocr tesseract-ocr-jpn
 sudo apt install -y postgresql-$(psql -V | grep -oE '[0-9]+' | head -1)-pgvector  # PG のバージョンに合わせる
-# systemd の無いコンテナでは起動も手動: pg_ctlcluster $(ls /etc/postgresql | sort -V | tail -1) main start
 curl -fsSL https://ollama.com/install.sh | sh
 ```
 
@@ -67,9 +68,8 @@ curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/inst
 ```
 
 ```bash
-sudo apt install -y postgresql tesseract-ocr tesseract-ocr-jpn   # root で動くコンテナ (sudo 未導入) は sudo を外す
+sudo apt install -y postgresql tesseract-ocr tesseract-ocr-jpn
 sudo apt install -y postgresql-$(psql -V | grep -oE '[0-9]+' | head -1)-pgvector  # PG のバージョンに合わせる
-# systemd の無いコンテナでは起動も手動: pg_ctlcluster $(ls /etc/postgresql | sort -V | tail -1) main start
 ```
 
 GPU が必要で、初回起動時に HuggingFace から model を download します。インストール先や運用コマンドは Bare Metal Ollama 版と同じ（`~/.local/db` / `db` コマンド）で、統一バイナリです。`.env` の `LLM_BACKEND=vllm` によって vLLM として動作します。
@@ -175,45 +175,6 @@ docker run -d --name digitalbase-app \
 ```
 lmlight/digitalbase:latest
 ```
-
-### コンテナ環境で詰まった場合
-
-クラウド GPU コンテナは root 実行・`sudo` なし・systemd なしのことが多く、通常のインストールが途中で止まることがあります。症状ごとの対処は次のとおりです。
-
-**`sudo: command not found` / `sudo -u postgres` が失敗する**
-
-`sudo` を外して実行します。root では `su postgres` 経由でロール / データベースを作成します（install スクリプトは `sudo` の有無を自動判別します。手動で行う場合のみ以下）。
-
-```bash
-su postgres -c "psql -d postgres -c \"CREATE USER digitalbase WITH PASSWORD 'digitalbase';\""
-su postgres -c "psql -d postgres -c \"CREATE DATABASE digitalbase OWNER digitalbase;\""
-```
-
-**`psql: could not connect` / PostgreSQL に接続できない**
-
-systemd が無く起動していない可能性があります。手動で起動します。
-
-```bash
-pg_ctlcluster $(ls /etc/postgresql | sort -V | tail -1) main start
-```
-
-**`nvcc: command not found`（vLLM 版）**
-
-CUDA が PATH に通っていません。PATH に追加し、`.env` にも追記します。
-
-```bash
-export PATH=/usr/local/cuda/bin:$PATH
-```
-
-**ビルド依存が足りない（vLLM 版）**
-
-```bash
-apt install -y build-essential python3-dev ffmpeg ninja-build
-```
-
-**再構成（reconfigure）でデータが消える**
-
-コンテナのストレージは非永続のことがあります。DB データは外部に保持してください（`DATABASE_URL` を外部 PostgreSQL、または永続ボリューム上の PostgreSQL に向ける）。
 
 ---
 
@@ -386,6 +347,47 @@ curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/inst
 # Windows（位置引数でモデル指定）
 & ([scriptblock]::Create((irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-transcribe.ps1))) small
 ```
+
+---
+
+## 9. トラブルシューティング
+
+クラウド GPU コンテナは root 実行・`sudo` なし・systemd なしのことが多く、通常のインストールが途中で止まることがあります。症状ごとの対処は次のとおりです。
+
+**`sudo: command not found` / `sudo -u postgres` が失敗する**
+
+`sudo` を外して実行します。root では `su postgres` 経由でロール / データベースを作成します（install スクリプトは `sudo` の有無を自動判別します。手動で行う場合のみ以下）。
+
+```bash
+su postgres -c "psql -d postgres -c \"CREATE USER digitalbase WITH PASSWORD 'digitalbase';\""
+su postgres -c "psql -d postgres -c \"CREATE DATABASE digitalbase OWNER digitalbase;\""
+```
+
+**`psql: could not connect` / PostgreSQL に接続できない**
+
+systemd が無く起動していない可能性があります。手動で起動します。
+
+```bash
+pg_ctlcluster $(ls /etc/postgresql | sort -V | tail -1) main start
+```
+
+**`nvcc: command not found`（vLLM 版）**
+
+CUDA が PATH に通っていません。PATH に追加し、`.env` にも追記します。
+
+```bash
+export PATH=/usr/local/cuda/bin:$PATH
+```
+
+**ビルド依存が足りない（vLLM 版）**
+
+```bash
+apt install -y build-essential python3-dev ffmpeg ninja-build
+```
+
+**再構成（reconfigure）でデータが消える**
+
+コンテナのストレージは非永続のことがあります。DB データは外部に保持してください（`DATABASE_URL` を外部 PostgreSQL、または永続ボリューム上の PostgreSQL に向ける）。
 
 ---
 
