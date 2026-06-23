@@ -59,7 +59,7 @@ irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-win
 
 必要なソフトは installer が winget で自動導入します。管理者権限は不要で、通常ユーザーのまま実行できます。
 
-> pgvector（RAG 用）は自動配置されません（Windows 向けの公式 prebuilt バイナリが存在しないため）。RAG（ベクトル検索）を使う場合は、お使いの PostgreSQL のメジャーバージョンに合わせて pgvector を手動で導入するか、pgvector 同梱の Docker 版を利用してください。pgvector を導入していない場合も、警告のみで RAG を無効化したままインストールは続行します。
+> pgvector（RAG 用）は、自前ビルド版（VC++ Redistributable 不要）を自動配置します。ただし非管理者で実行した場合は RAG が無効化されます（警告のみで続行）。その場合は管理者で再実行するか、pgvector 同梱で管理者権限の要らない Docker 版を利用してください。
 
 ### Linux (vLLM)
 
