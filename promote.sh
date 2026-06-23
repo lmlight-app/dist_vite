@@ -45,6 +45,16 @@ for asset in "${ASSETS[@]}"; do
     || echo "  - $asset (not found, skipping)"
 done
 
+# pgvector (Windows) zip は本線 release (x*) とは独立した固定タグ release
+# 'pgvector-latest' に置かれる (release-pgvector-windows.yml が rolling 上書き)。
+# 固定タグを直接参照するので、x* の本数・latest に一切依存しない。版非依存の固定名
+# pgvector-pg<major>-windows-x64.zip をバイナリと同じく R2 (vite-latest / vite-$TAG) に同梱。
+PGVEC_TAG="pgvector-latest"
+echo "Downloading pgvector (Windows) assets from $PGVEC_TAG release..."
+gh release download "$PGVEC_TAG" --repo "$REPO" -p "pgvector-pg*-windows-x64.zip*" -D "$TMPDIR" 2>/dev/null \
+  && echo "  ✓ pgvector ($PGVEC_TAG)" \
+  || echo "  - pgvector assets (not found in $PGVEC_TAG, skipping)"
+
 echo "Uploading to R2..."
 rclone copy "$TMPDIR/" "$BUCKET/vite-latest/" --progress
 rclone copy "$TMPDIR/" "$BUCKET/vite-$TAG/" --progress
