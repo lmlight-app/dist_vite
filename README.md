@@ -53,13 +53,19 @@ brew install postgresql@17 pgvector ollama tesseract tesseract-lang  # postgresq
 
 ### Windows
 
+環境設定（PostgreSQL / pgvector / Ollama の導入）を**管理者 PowerShell**で先に実行します（Linux の `apt` / macOS の `brew` に相当）:
+
+```powershell
+irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/setup-windows.ps1 | iex
+```
+
+続けて、本体を通常ユーザーでインストールします:
+
 ```powershell
 irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-windows.ps1 | iex
 ```
 
-必要なソフトは installer が winget で自動導入します。管理者権限は不要で、通常ユーザーのまま実行できます。
-
-> pgvector（RAG 用）は、自前ビルド版（VC++ Redistributable 不要）を自動配置します。ただし非管理者で実行した場合は RAG が無効化されます（警告のみで続行）。その場合は管理者で再実行するか、pgvector 同梱で管理者権限の要らない Docker 版を利用してください。
+> `setup-windows.ps1` は pgvector の DLL（自前ビルド版・VC++ Redistributable 不要）を `C:\Program Files\PostgreSQL` に配置するため、**「管理者として実行」が必要**です。これを省くと RAG（ベクトル検索）が無効化されます（pgvector 同梱で管理者不要の Docker 版を使う方法もあります）。本体（`install-windows.ps1`）は通常ユーザーで実行できます。
 
 ### Linux (vLLM)
 
