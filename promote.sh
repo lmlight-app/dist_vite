@@ -20,6 +20,15 @@ ASSETS=(
   "lmlight-vite-windows-amd64.exe.sha256"
   "ai-server-installer-windows.exe"
   "ai-server-installer-windows.exe.sha256"
+  # deb/rpm パッケージ (pkg-publish.yml が pkg* タグで生成・古い release には無い)
+  "digitalbase-amd64.deb"
+  "digitalbase-amd64.deb.sha256"
+  "digitalbase-arm64.deb"
+  "digitalbase-arm64.deb.sha256"
+  "digitalbase-amd64.rpm"
+  "digitalbase-amd64.rpm.sha256"
+  "digitalbase-arm64.rpm"
+  "digitalbase-arm64.rpm.sha256"
   # vLLM edition — 統一binary化により廃止 (install-linux-vllm.sh は lmlight-vite-linux-* + LLM_BACKEND=vllm を使用)
   # "lmlight-vite-vllm-linux-amd64"
   # "lmlight-vite-vllm-linux-amd64.sha256"
