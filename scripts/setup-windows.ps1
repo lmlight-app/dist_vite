@@ -1,4 +1,4 @@
-﻿# AI Server 環境設定 (Windows) — 前提ソフト(PostgreSQL / pgvector / Ollama / Tesseract)を導入
+# AI Server 環境設定 (Windows) — 前提ソフト(PostgreSQL / pgvector / Ollama / Tesseract)を導入
 # 使い方: 管理者 PowerShell で実行
 #   irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/setup-windows.ps1 | iex
 #

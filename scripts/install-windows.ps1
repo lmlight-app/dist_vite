@@ -1,4 +1,4 @@
-﻿# AI Server インストーラー for Windows (Vite Edition)
+# AI Server インストーラー for Windows (Vite Edition)
 # 使い方: irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-windows.ps1 | iex
 
 $ErrorActionPreference = "Stop"
