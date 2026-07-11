@@ -18,8 +18,8 @@ ASSETS=(
   "lmlight-vite-macos-arm64.sha256"
   "lmlight-vite-windows-amd64.exe"
   "lmlight-vite-windows-amd64.exe.sha256"
-  "ai-server-installer-windows.exe"
-  "ai-server-installer-windows.exe.sha256"
+#   "ai-server-installer-windows.exe"
+#   "ai-server-installer-windows.exe.sha256"
   # deb/rpm パッケージ (pkg-publish.yml が pkg* タグで生成・古い release には無い)
   "digitalbase-amd64.deb"
   "digitalbase-amd64.deb.sha256"
@@ -73,9 +73,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")/scripts" && pwd)"
 rclone copy "$SCRIPT_DIR/" "$BUCKET/vite-scripts/" --progress \
   --header-upload "Content-Type: text/plain; charset=utf-8"
 
-echo "Uploading README.md to R2..."
-ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
-rclone copyto "$ROOT_DIR/README.md" "$BUCKET/vite-README.md" --s3-no-check-bucket
+# echo "Uploading README.md to R2..."
+# ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# rclone copyto "$ROOT_DIR/README.md" "$BUCKET/vite-README.md" --s3-no-check-bucket
 
 echo "Done."
 echo "Public URL: https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-latest/"
