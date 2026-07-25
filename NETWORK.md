@@ -16,7 +16,7 @@ sudo ufw allow 8000/tcp
 sudo ufw allow 5353/udp
 ```
 
-> macOS / iOS / Android / Windows 10 (1803以降) は `.local` に標準対応。Avahi は link-local (169.254.x.x) でもアドバタイズするため、**直繋ぎでも同じ URL が使えます**。
+> macOS / iOS / Android / Windows 10 (1803以降) は `.local` に標準対応。**直繋ぎ (セクション1) でも同じ URL が使えます**。
 
 ホスト名を変える場合: `sudo hostnamectl set-hostname <名前>` → `sudo systemctl restart avahi-daemon`
 
@@ -24,17 +24,61 @@ sudo ufw allow 5353/udp
 
 ## 1. 直繋ぎ (LANケーブル1本でPC↔PC)
 
-ルーター無しで2台を直結する場合。
+ルーター無しで2台を直結する場合。**サーバー側を「ミニルーター」にする方法A (dnsmasq) を推奨**します。ルーターやNASの直結セットアップポートと同じ標準的な構成で、クライアント側は「自動取得のままケーブルを挿すだけ」になります。
 
-### 方法A: ゼロコンフィグ (推奨)
+### 方法A: サーバー側DHCP (dnsmasq・推奨)
 
-両側を**Ethernet自動取得 (DHCP)** のままにしておきます。DHCPサーバーが居ないので両側が link-local (169.254.x.x) を取得し、Avahi が名前解決してくれます。
+サーバーの直結用NICに固定IPを振り、**そのNICだけ**でDHCPを配ります。クライアントは数秒で通常のIP (192.168.10.x) を取得でき、link-local (169.254.x.x) 頼みの不安定さがなくなります。
+
+> **⚠ この設定をしたNICを既存のLAN/社内ネットワークに挿さないでください**。ネットワーク内に勝手にDHCPを配ってしまい、他の機器の通信を壊します。**直結専用ポート**として使ってください。
+
+#### 1-A-1. 直結用NIC名を確認
+
+```bash
+ip link show    # 例: enp3s0 (以降この名前で読み替え)
+```
+
+#### 1-A-2. サーバーに固定IPを設定 (netplan)
+
+`/etc/netplan/99-direct.yaml`:
+
+```yaml
+network:
+  version: 2
+  ethernets:
+    enp3s0:            # 直結用NIC名に置き換え
+      dhcp4: no
+      addresses: [192.168.10.1/24]
+      optional: true   # ケーブル未接続でも起動を待たせない
+```
+
+```bash
+sudo netplan apply
+```
+
+#### 1-A-3. dnsmasq をインストール・設定
+
+```bash
+sudo apt install -y dnsmasq
+```
+
+`/etc/dnsmasq.d/direct.conf`:
 
 ```
-LANケーブルを挿す → 1〜2分待つ → http://digitalbase.local:8000
+interface=enp3s0    # 直結用NICのみで配る (重要)
+bind-interfaces
+port=0              # DNS機能は無効化しDHCP専用にする (systemd-resolvedとの衝突回避)
+dhcp-range=192.168.10.50,192.168.10.150,12h
 ```
 
-#### 各OSの「自動取得」状態
+```bash
+sudo systemctl enable --now dnsmasq
+sudo ufw allow in on enp3s0 to any port 67 proto udp   # DHCP
+```
+
+#### 1-A-4. クライアント側
+
+**自動取得 (DHCP) のまま**ケーブルを挿すだけ。数秒で `192.168.10.x` が割り当てられます。
 
 | OS | 既定 | 確認/戻し方 |
 |----|------|-----------|
@@ -42,24 +86,26 @@ LANケーブルを挿す → 1〜2分待つ → http://digitalbase.local:8000
 | **macOS** | DHCP (デフォルト) | システム設定 → ネットワーク → Ethernet → 詳細 → TCP/IP → 「IPv4を構成: DHCPサーバを使用」 |
 | **Linux** | NetworkManager の場合DHCP既定 | `nmcli device show` で `ipv4.method: auto` を確認 |
 
-**過去に手動IPを設定したことがあるPCは、必ず自動取得に戻してください**。手動のままだとサーバーと別サブネットになって繋がりません。
+**過去に手動IPを設定したことがあるPCは、必ず自動取得に戻してください**。
+
+アクセス: `http://digitalbase.local:8000` または `http://192.168.10.1:8000` (IP直打ちが一番確実)
 
 #### 動作確認
 
 クライアント側で:
 ```bash
-ping digitalbase.local
+ping 192.168.10.1
 ```
-→ 応答が返れば成功。返らない場合はクライアントのIPを確認 (`ipconfig` / `ip addr`) し、`169.254.x.x` になっていなければ自動取得設定を見直す。
+→ 応答が返れば成功。`digitalbase.local` が引けない環境でも `http://192.168.10.1:8000` で使えます。
 
-### 方法B: 手動IP (確実)
-
-方法AがダメならIPを固定:
-
-**サーバー側:**
+サーバー側でリース状況を確認:
 ```bash
-sudo ip addr add 192.168.10.1/24 dev eth0   # eth0 は ip link show で確認
+cat /var/lib/misc/dnsmasq.leases
 ```
+
+### 方法B: 手動IP (dnsmasqを入れたくない場合)
+
+サーバー側は方法Aの手順 1-A-2 (netplanで `192.168.10.1` 固定) まで実施し、dnsmasq の代わりにクライアント側で手動設定します。
 
 **クライアント側** (サーバーと**異なるIP**・同じサブネット):
 - **Windows:** 設定 → ネットワーク → イーサネット → IP 設定 → 編集 → 手動 → IP `192.168.10.2` / サブネット `255.255.255.0`
@@ -67,6 +113,14 @@ sudo ip addr add 192.168.10.1/24 dev eth0   # eth0 は ip link show で確認
 - **Linux:** `sudo ip addr add 192.168.10.2/24 dev eth0`
 
 アクセス: `http://digitalbase.local:8000` または `http://192.168.10.1:8000`
+
+### 参考: ゼロコンフィグ (link-local) — 非推奨
+
+両側を自動取得のまま直結しても、両側が link-local (169.254.x.x) を取得し Avahi の名前解決で一応繋がります。ただし以下の理由で**安定しないため、方法A/Bが使えない緊急時のみ**:
+
+- Windows はDHCPを諦めて 169.254.x.x を確定するまで数十秒〜1分以上かかり、ケーブルを挿し直すたびに繰り返す
+- クライアントがWi-Fi併用だと `.local` の名前解決が別インターフェースに流れて失敗しやすい
+- Windows では「識別されていないネットワーク」= パブリック扱いになり、ファイアウォールがmDNSを塞ぐことがある
 
 ### 直繋ぎが不安定な場合 (物理層対策)
 
@@ -222,7 +276,7 @@ sudo ufw allow 80/tcp
 ```bash
 sudo ufw default deny incoming
 sudo ufw allow from 192.168.0.0/16 to any port 80 proto tcp
-sudo ufw allow from 169.254.0.0/16 to any port 80 proto tcp   # 直繋ぎ用
+sudo ufw allow from 169.254.0.0/16 to any port 80 proto tcp   # 直繋ぎ (参考: link-local方式) 用
 sudo ufw allow 5353/udp                                        # mDNS
 sudo ufw enable
 ```
@@ -234,8 +288,8 @@ sudo ufw enable
 | 症状 | 確認 | 対処 |
 |-----|------|------|
 | `.local` が効かない | `systemctl status avahi-daemon` | Avahi 起動、UDP 5353 開放 |
-| 直繋ぎで繋がらない (初回) | クライアント側のIP | 1〜2分待つ (link-local 取得に時間がかかる) |
-| 直繋ぎで繋がらない (待っても) | 両側のIP種別 | 両側を揃える (両DHCP or 両手動) |
+| 直繋ぎでIPが来ない (クライアントが 169.254.x.x のまま) | `systemctl status dnsmasq`、`/etc/dnsmasq.d/direct.conf` の `interface=` がNIC名と一致するか | dnsmasq 再起動、NIC名修正。リースは `cat /var/lib/misc/dnsmasq.leases` で確認 |
+| 直繋ぎでIPは来るが繋がらない | `ping 192.168.10.1` | ufw で 8000/tcp 開放を確認、`http://192.168.10.1:8000` でIP直打ち |
 | 直繋ぎで途中で切れる | NICの省電力設定 | EEE無効化、GbEスイッチを挟む |
 | DHCPでIPが変わる | ルーター設定 | DHCP予約 |
 | Windowsで `.local` 不可 | Windowsバージョン | Win10 1803以降は標準対応。古い場合は hosts ファイル |
