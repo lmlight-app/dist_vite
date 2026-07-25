@@ -66,7 +66,7 @@ sudo apt install -y dnsmasq
 
 ```
 interface=enp3s0    # 直結用NICのみで配る (重要)
-bind-interfaces
+bind-dynamic        # ケーブル未接続 (NICにIP無し) でも起動できるように。bind-interfaces だと起動失敗する
 port=0              # DNS機能は無効化しDHCP専用にする (systemd-resolvedとの衝突回避)
 dhcp-range=192.168.10.50,192.168.10.150,12h
 ```
