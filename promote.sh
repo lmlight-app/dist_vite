@@ -64,6 +64,12 @@ gh release download "$PGVEC_TAG" --repo "$REPO" -p "pgvector-pg*-windows-x64.zip
   && echo "  ✓ pgvector ($PGVEC_TAG)" \
   || echo "  - pgvector assets (not found in $PGVEC_TAG, skipping)"
 
+# latest.json: app 内の「最新状況を確認」が参照する版マニフェスト (タグ x20260812 → "26.0812")
+RAW="${TAG#x}"; RAW="${RAW%%-*}"
+VERSION="$(printf '%s' "$RAW" | sed -E 's/^20([0-9]{2})([0-9]{4})/\1.\2/')"
+printf '{"version":"%s","released_at":"%s"}\n' "$VERSION" "$(date -u +%Y-%m-%d)" > "$TMPDIR/latest.json"
+echo "  ✓ latest.json (version $VERSION)"
+
 echo "Uploading to R2..."
 rclone copy "$TMPDIR/" "$BUCKET/vite-latest/" --progress
 rclone copy "$TMPDIR/" "$BUCKET/vite-$TAG/" --progress
