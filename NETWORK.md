@@ -69,7 +69,11 @@ interface=enp3s0    # 直結用NICのみで配る (重要)
 bind-dynamic        # ケーブル未接続 (NICにIP無し) でも起動できるように。bind-interfaces だと起動失敗する
 port=0              # DNS機能は無効化しDHCP専用にする (systemd-resolvedとの衝突回避)
 dhcp-range=192.168.10.50,192.168.10.150,12h
+dhcp-option=option:router      # 値なし = デフォルトゲートウェイを配らない (重要・下記参照)
+dhcp-option=option:dns-server  # 値なし = DNSも配らない
 ```
+
+> **`dhcp-option=option:router` (空) は必須**。これが無いと dnsmasq は自分をゲートウェイとして配り、Wi-Fi等でインターネット併用中のクライアントの通信が「インターネットの無い直繋ぎ側」に吸われて**Teams/ブラウザ等が切れます**。直繋ぎはあくまで「サーバーへの脇道」であり、クライアントのデフォルト経路を奪ってはいけません。
 
 ```bash
 sudo systemctl enable --now dnsmasq
@@ -107,10 +111,10 @@ cat /var/lib/misc/dnsmasq.leases
 
 サーバー側は方法Aの手順 1-A-2 (netplanで `192.168.10.1` 固定) まで実施し、dnsmasq の代わりにクライアント側で手動設定します。
 
-**クライアント側** (サーバーと**異なるIP**・同じサブネット):
-- **Windows:** 設定 → ネットワーク → イーサネット → IP 設定 → 編集 → 手動 → IP `192.168.10.2` / サブネット `255.255.255.0`
-- **macOS:** システム設定 → ネットワーク → Ethernet → 詳細 → TCP/IP → 手動
-- **Linux:** `sudo ip addr add 192.168.10.2/24 dev eth0`
+**クライアント側** (サーバーと**異なるIP**・同じサブネット。**ルーター/ゲートウェイとDNSは空欄**にする — ここにゲートウェイを書くとクライアントのインターネットが直繋ぎ側に奪われて切れます):
+- **Windows:** 設定 → ネットワーク → イーサネット → IP 設定 → 編集 → 手動 → IP `192.168.10.2` / サブネット `255.255.255.0` / ゲートウェイ・DNSは空欄
+- **macOS:** システム設定 → ネットワーク → Ethernet → 詳細 → TCP/IP → 手動 (IP `192.168.10.2` / サブネット `255.255.255.0` / ルーターは空か `0.0.0.0`)。あわせてネットワーク設定の「…」→ サービス順序で **Wi-Fi を Ethernet より上**に
+- **Linux:** `sudo ip addr add 192.168.10.2/24 dev eth0` (ゲートウェイは追加しない)
 
 アクセス: `http://digitalbase.local:8000` または `http://192.168.10.1:8000`
 
@@ -291,6 +295,7 @@ sudo ufw enable
 | 直繋ぎでIPが来ない (クライアントが 169.254.x.x のまま) | `systemctl status dnsmasq`、`/etc/dnsmasq.d/direct.conf` の `interface=` がNIC名と一致するか | dnsmasq 再起動、NIC名修正。リースは `cat /var/lib/misc/dnsmasq.leases` で確認 |
 | 直繋ぎでIPは来るが繋がらない | `ping 192.168.10.1` | ufw で 8000/tcp 開放を確認、`http://192.168.10.1:8000` でIP直打ち |
 | 直繋ぎで途中で切れる | NICの省電力設定 | EEE無効化、GbEスイッチを挟む |
+| 直繋ぎするとクライアントのインターネット (Wi-Fi/Teams) が切れる | クライアントのデフォルト経路が直繋ぎNICに向いていないか (`netstat -rn` / `route print`) | 方法A: `dhcp-option=option:router` (空) を設定し dnsmasq 再起動 → クライアントでIP再取得。方法B: 手動IPのルーター/ゲートウェイ欄を空に。macOSはサービス順序で Wi-Fi を最上位に |
 | DHCPでIPが変わる | ルーター設定 | DHCP予約 |
 | Windowsで `.local` 不可 | Windowsバージョン | Win10 1803以降は標準対応。古い場合は hosts ファイル |
 | クラウドで繋がらない | セキュリティグループ | クラウド側のFWでもポート開放が必要 |
