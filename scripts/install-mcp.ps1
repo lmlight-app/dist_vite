@@ -6,12 +6,12 @@
 #
 # 使い方:
 #   irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-mcp.ps1 | iex
-#   & ([scriptblock]::Create((irm .../install-mcp.ps1))) -PythonVersion 3.12 -McpDir "D:\db\mcp"
+#   & ([scriptblock]::Create((irm .../install-mcp.ps1))) -PythonVersion 3.13 -McpDir "D:\db\mcp"
 #
-# 環境変数: DB_INSTALL_DIR (本体の配置先、既定 %LOCALAPPDATA%\db)、MCP_PYTHON_VER (既定 3.12)
+# 環境変数: DB_INSTALL_DIR (本体の配置先、既定 %LOCALAPPDATA%\db)、MCP_PYTHON_VER (既定 3.13)
 
 param(
-    [string]$PythonVersion = $(if ($env:MCP_PYTHON_VER) { $env:MCP_PYTHON_VER } else { "3.12" }),
+    [string]$PythonVersion = $(if ($env:MCP_PYTHON_VER) { $env:MCP_PYTHON_VER } else { "3.13" }),
     [string]$McpDir = "",
     [switch]$NoPrewarm
 )

@@ -7,14 +7,14 @@
 #
 # 使い方:
 #   curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-mcp.sh | bash
-#   curl -fsSL .../install-mcp.sh | bash -s -- --python 3.12 --dir /opt/db/mcp
+#   curl -fsSL .../install-mcp.sh | bash -s -- --python 3.13 --dir /opt/db/mcp
 #
-# 環境変数: DB_INSTALL_DIR (本体の配置先、既定 ~/.local/db)、MCP_PYTHON_VER (既定 3.12)
+# 環境変数: DB_INSTALL_DIR (本体の配置先、既定 ~/.local/db)、MCP_PYTHON_VER (既定 3.13)
 set -e
 
 INSTALL_DIR="${DB_INSTALL_DIR:-$HOME/.local/db}"
 ENV_FILE="$INSTALL_DIR/.env"
-PYTHON_VER="${MCP_PYTHON_VER:-3.12}"
+PYTHON_VER="${MCP_PYTHON_VER:-3.13}"
 MCP_DIR="$INSTALL_DIR/mcp"
 PREWARM=1
 
