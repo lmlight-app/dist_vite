@@ -4,13 +4,12 @@ Ubuntu PC を他のデバイスからアクセスできるサーバーにする�
 
 ---
 
-## 0. サーバー初期設定 (Avahiでホスト名を振る)
+## 0. サーバー初期設定 (Avahi で `.local` 名を有効にする)
 
-直繋ぎ・LAN経由どちらでも共通の最初の一手。**`digitalbase.local` でアクセス可能**になります。
+直繋ぎ・LAN経由どちらでも共通の最初の一手。**今のホスト名のまま `<ホスト名>.local` でアクセス可能**になります (`hostname` コマンドで確認)。ホスト名の変更は不要です。
 
 ```bash
 sudo apt install -y avahi-daemon libnss-mdns
-sudo hostnamectl set-hostname digitalbase
 sudo systemctl enable --now avahi-daemon
 sudo ufw allow 8000/tcp
 sudo ufw allow 5353/udp
@@ -18,7 +17,7 @@ sudo ufw allow 5353/udp
 
 > macOS / iOS / Android / Windows 10 (1803以降) は `.local` に標準対応。**直繋ぎ (セクション1) でも同じ URL が使えます**。
 
-ホスト名を変える場合: `sudo hostnamectl set-hostname <名前>` → `sudo systemctl restart avahi-daemon`
+URL を `digitalbase.local` のように揃えたい場合のみ (任意): `sudo hostnamectl set-hostname digitalbase` → `sudo systemctl restart avahi-daemon`。以降の例は `digitalbase.local` で書いていますが、実際のホスト名に読み替えてください。
 
 ---
 
