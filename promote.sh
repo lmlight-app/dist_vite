@@ -64,11 +64,16 @@ gh release download "$PGVEC_TAG" --repo "$REPO" -p "pgvector-pg*-windows-x64.zip
   && echo "  ✓ pgvector ($PGVEC_TAG)" \
   || echo "  - pgvector assets (not found in $PGVEC_TAG, skipping)"
 
-# latest.json: app 内の「最新状況を確認」が参照する版マニフェスト (タグ x20260812 → "26.0812")
+# latest.json: app 内の「最新状況を確認」が参照する版マニフェスト (タグ x20260812 → "26.0812")。
+# 推論エンジン / uv の固定版 (scripts/engine-versions.env が正本) も同居させ、installer が読んで版固定 install する
 RAW="${TAG#x}"; RAW="${RAW%%-*}"
 VERSION="$(printf '%s' "$RAW" | sed -E 's/^20([0-9]{2})([0-9]{4})/\1.\2/')"
-printf '{"version":"%s","released_at":"%s"}\n' "$VERSION" "$(date -u +%Y-%m-%d)" > "$TMPDIR/latest.json"
-echo "  ✓ latest.json (version $VERSION)"
+# shellcheck source=scripts/engine-versions.env
+. "$(dirname "$0")/scripts/engine-versions.env"
+: "${VLLM_VERSION:?engine-versions.env: VLLM_VERSION is required}" "${SGLANG_VERSION:?engine-versions.env: SGLANG_VERSION is required}" "${UV_VERSION:?engine-versions.env: UV_VERSION is required}"
+printf '{"version":"%s","released_at":"%s","vllm_version":"%s","sglang_version":"%s","uv_version":"%s","torch_index":"%s"}\n' \
+  "$VERSION" "$(date -u +%Y-%m-%d)" "$VLLM_VERSION" "$SGLANG_VERSION" "$UV_VERSION" "${TORCH_INDEX:-}" > "$TMPDIR/latest.json"
+echo "  ✓ latest.json (version $VERSION, vllm $VLLM_VERSION, sglang $SGLANG_VERSION, uv $UV_VERSION)"
 
 echo "Uploading to R2..."
 rclone copy "$TMPDIR/" "$BUCKET/vite-latest/" --progress

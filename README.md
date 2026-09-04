@@ -22,8 +22,8 @@
 | コンポーネント | 用途 | 備考 |
 |---|---|---|
 | PostgreSQL + pgvector | DB / ベクトル検索（RAG） | pgvector 対応版。PostgreSQL 16 以降 |
-| Ollama | ローカル LLM（Bare Metal 既定） | install 時に導入 |
-| NVIDIA GPU + CUDA | GPU / vLLM 版のみ | vLLM 本体は script が venv に自動導入 |
+| Ollama | ローカル LLM（Bare Metal 既定） | 事前導入（Linux は `install-linux.sh --with-ollama` で installer が公式 script により導入可。未導入のまま実行すると `[WARN] Ollama is not installed` と導入コマンドを表示して続行し、Ollama 導入後にチャットが使える） |
+| NVIDIA GPU + CUDA | GPU / vLLM・SGLang 版のみ | vLLM / SGLang 本体は script が venv に導入（版は `latest.json` の `vllm_version` / `sglang_version` に固定） |
 | Tesseract OCR | 画像・PDF の文字認識 | 日本語は言語データが必要（apt `tesseract-ocr-jpn` / brew `tesseract-lang` / Windows はインストール時に Japanese 選択） |
 | OS（Linux） | 配布バイナリの動作要件 | Ubuntu 24.04 以上（glibc 2.39）。コンテナもベースを 24.04 以上に |
 
@@ -35,11 +35,15 @@
 curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-linux.sh | bash
 ```
 
+事前に PostgreSQL / Tesseract / Ollama を導入します（Ollama は installer に任せる場合 `| bash -s -- --with-ollama`）:
+
 ```bash
 sudo apt install -y postgresql tesseract-ocr tesseract-ocr-jpn
 sudo apt install -y postgresql-$(psql -V | grep -oE '[0-9]+' | head -1)-pgvector  # PG のバージョンに合わせる
-curl -fsSL https://ollama.com/install.sh | sh
+curl -fsSL https://ollama.com/install.sh | sh   # または installer に --with-ollama を渡す
 ```
+
+> installer は Ollama の有無を確認し、未導入なら `[WARN] Ollama is not installed` と導入コマンドを表示して続行します（service は入る。Ollama を後から導入すればチャットが使えます）。
 
 ### macOS
 
@@ -78,7 +82,36 @@ sudo apt install -y postgresql tesseract-ocr tesseract-ocr-jpn
 sudo apt install -y postgresql-$(psql -V | grep -oE '[0-9]+' | head -1)-pgvector  # PG のバージョンに合わせる
 ```
 
-GPU が必要で、初回起動時に HuggingFace から model を download します。インストール先や運用コマンドは Bare Metal Ollama 版と同じ（`~/.local/db` / `db` コマンド）で、統一バイナリです。`.env` の `LLM_BACKEND=vllm` によって vLLM として動作します。
+GPU が必要で、初回起動時に HuggingFace から model を download します。インストール先や運用コマンドは Bare Metal Ollama 版と同じ（`~/.local/db` / `db` コマンド）で、統一バイナリです。`.env` の `LLM_BACKEND=vllm` によって vLLM として動作します。SGLang 版は `install-linux-sglang.sh`（`LLM_BACKEND=sglang`）で、以下の説明は共通です。
+
+vLLM / SGLang / uv の版は `latest.json` の `vllm_version` / `sglang_version` / `uv_version`（任意で `torch_index`）に固定され、再実行すると既存 venv もその版へ upgrade / downgrade されます。`latest.json` にその key が無い場合は script 同梱の既定版（`engine-versions.env` と同値）を `[WARN]` 付きで使います。特定版を入れる場合は flag か env で上書きします:
+
+```bash
+curl -fsSL .../install-linux-vllm.sh | bash -s -- --vllm-version 0.27.1        # または DB_VLLM_VERSION=0.27.1
+curl -fsSL .../install-linux-sglang.sh | bash -s -- --sglang-version 0.5.18    # または DB_SGLANG_VERSION=0.5.18
+```
+
+バイナリは公開 `.sha256` と照合し、不一致なら中断します（`.sha256` を取得できない場合は `[WARN] checksum unavailable` で続行）。旧バイナリは `~/.local/db/api.prev` に残るため、更新後に問題があれば `db rollback` で戻せます（6. アップデート参照）。
+
+#### オフラインインストール（閉域）
+
+vLLM / SGLang 版は `--offline --wheelhouse DIR` で、ネットワークを使わずに DIR の事前配置物だけで導入できます（OS package の `apt install` は事前に済ませてください）。
+
+```bash
+bash install-linux-vllm.sh --offline --wheelhouse /media/usb/db-offline
+```
+
+DIR に置くもの（同じ arch / CUDA のオンライン機で取得）:
+
+| ファイル | 内容 | 取得元 |
+|---|---|---|
+| `lmlight-vite-linux-<arch>` / `.sha256` | 本体バイナリと checksum | `https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-latest/` |
+| `latest.json` | 版マニフェスト | 同上（`--vllm-version` を渡す場合は省略可） |
+| `uv` | uv バイナリ（`uv_version` と同じ版） | https://github.com/astral-sh/uv/releases の `uv-<arch>-unknown-linux-gnu.tar.gz` を展開 |
+| `*.whl` | vLLM（または `sglang[all]`）と `openai-whisper` の wheel 一式 | `pip download "vllm==<version>" "openai-whisper>=20231117" --dest DIR`（必要なら `--extra-index-url <torch index>`） |
+| `hf-cache.tar`（任意） | 配信するモデルの HuggingFace キャッシュ | オンライン機の `~/.cache/huggingface` を tar |
+
+加えて、対象機には `python3.13`（`DB_PYTHON_VER` で変更可）が必要です（uv はオフラインでは interpreter を取得できません）。不足があると installer が必要一覧を表示して停止します。
 
 ### Docker
 
@@ -290,6 +323,8 @@ schema 構成: `public`（主要 entity）/ `approval` / `helpdesk` / `vision` /
 | Linux / macOS / Win (vLLM / Ollama) | `db start` | `db stop` |
 | Docker (`digitalbase-app`) | `docker start digitalbase-app` | `docker stop digitalbase-app` |
 
+Linux (systemd) では `db restart` / `db status` / `db logs`、Linux / macOS では `db rollback`（直前のバイナリへ戻す）も使えます。
+
 ログは、Bare Metal では `db start` を実行した前景に出力されます。Docker では `docker logs -f digitalbase-app` で確認できます。
 
 ### アクセス
@@ -302,7 +337,11 @@ schema 構成: `public`（主要 entity）/ `approval` / `helpdesk` / `vision` /
 
 ## 6. アップデート
 
-同じインストールコマンドを再実行します（データは保持され、`.env` は上書きされません）。
+同じインストールコマンドを再実行します（データは保持され、`.env` は上書きされません）。Linux サーバ設置では管理画面（ライセンス / アップデート）の「アップデートを実行」でも同じ installer が走ります。
+
+- 手順ログ: `~/.local/db/update.log`（UTC 時刻付き）。管理画面は `GET /api/admin/update/status` で進行中か・結果・ログ末尾・再起動後の自己診断（`/api/ready` の migration 失敗など）を表示します。
+- 差し戻し: 更新前のバイナリは `~/.local/db/api.prev` に残ります。新版で問題が出たら `db rollback`（停止 → `api` と `api.prev` を入れ替え → 再開。もう一度実行すると元に戻ります）。
+- 版固定: vLLM / SGLang / uv は `latest.json` の版に固定され、再実行で venv もその版に揃います（詳細は「Linux (vLLM)」）。
 
 Docker の場合は `docker pull lmlight/digitalbase:latest` を実行してから install を再実行します（container は作り直されますが、data は volume に保持されます）。
 
@@ -404,6 +443,8 @@ apt install -y build-essential python3-dev ffmpeg ninja-build
 ```
 ~/.local/db/                  # Bare Metal の data 実体 (Docker は ~/digitalbase)
 ├── api                       # binary (= API + frontend 同梱、Bare Metal のみ)
+├── api.prev                  # 更新前の binary (db rollback で入れ替え)
+├── update.log                # 更新手順ログ (UTC)
 ├── .env                      # 設定
 ├── license.lic               # ライセンス
 ├── files/                    # ユーザ file
