@@ -9,6 +9,7 @@ if [ -z "$HOME" ] || [ "$HOME" = "/" ]; then
 fi
 
 BASE_URL="${DB_BASE_URL:-https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-latest}"
+VERSION_BASE_URL="https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-"
 INSTALL_DIR="${DB_INSTALL_DIR:-$HOME/.local/db}"
 PYTHON_VER="${DB_PYTHON_VER:-3.13}"
 ARCH="$(uname -m)"
@@ -25,10 +26,11 @@ UV_VERSION_DEFAULT="latest"
 UV_MIN_VERSION="0.12.1"
 usage() {
     cat << 'USAGE'
-Usage: install-linux-vllm.sh [--vllm-version X.Y.Z] [--uv-version X.Y.Z] [--torch-index URL] [--offline --wheelhouse DIR]
+Usage: install-linux-vllm.sh [--vllm-version X.Y.Z] [--uv-version X.Y.Z] [--torch-index URL] [--offline --wheelhouse DIR] [--version VERSION]
   --vllm-version  vLLM: latest | nightly | X.Y.Z   (default: "vllm_version" in latest.json, else latest; env DB_VLLM_VERSION)
   --uv-version    uv: latest | X.Y.Z             (default: "uv_version" in latest.json, else latest; env DB_UV_VERSION)
   --torch-index   PyTorch wheel index URL (default: "torch_index" in latest.json; empty = uv --torch-backend=auto)
+  --version       DigitalBase version to install: latest | YY.MMDD[.N] | xYYYYMMDD[.N][-linux] (default: latest; env DB_VERSION)
   --offline       no network: binary / checksum / uv / wheels are taken from --wheelhouse DIR
   --wheelhouse    directory with the pre-staged files (env DB_WHEELHOUSE). See "Offline install" in README
 USAGE
@@ -36,6 +38,7 @@ USAGE
 while [ $# -gt 0 ]; do
     case "$1" in
         --offline) OFFLINE=1 ;;
+        --version) DB_VERSION="${2:?--version requires latest|YY.MMDD[.N]|xYYYYMMDD[.N][-linux]}"; shift ;;
         --wheelhouse) WHEELHOUSE="${2:?--wheelhouse requires DIR}"; shift ;;
         --vllm-version) VLLM_VERSION="${2:?--vllm-version requires latest|nightly|X.Y.Z}"; shift ;;
         --uv-version) UV_VERSION="${2:?--uv-version requires latest|X.Y.Z}"; shift ;;
@@ -45,6 +48,30 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
+DB_VERSION="${DB_VERSION:-latest}"
+printf '%s' "$DB_VERSION" | grep -Eq '^(latest|[0-9]{2}\.[0-9]{4}(\.[0-9]+)?|x[0-9]{8}(\.[0-9]+)?(-[a-z0-9]+)?)$' \
+    || { echo "[ERROR] --version must be latest, a version (YY.MMDD[.N]), or a release tag (xYYYYMMDD[.N][-linux])"; exit 2; }
+TARGET_VERSION=""
+if [ "$DB_VERSION" != "latest" ]; then
+    [ "${OFFLINE:-0}" -eq 0 ] || { echo "[ERROR] --version cannot be combined with --offline (the wheelhouse decides the version)"; exit 2; }
+    RELEASE_REF="$DB_VERSION"
+    case "$VERSION_BASE_URL" in
+        *github.com/*)
+            case "$RELEASE_REF" in
+                x*) ;;
+                *)
+                    RAW_VERSION="20$(printf '%s' "$RELEASE_REF" | sed -E 's/^([0-9]{2})\.([0-9]{4})/\1\2/')"
+                    CANDIDATES="$(curl -fsSL "https://api.github.com/repos/lmlight-app/dist_vite/releases?per_page=100" 2>/dev/null \
+                        | grep -o '"tag_name": *"x'"$RAW_VERSION"'\(-[a-z0-9]*\)\{0,1\}"' | sed -E 's/.*"(x[^"]+)".*/\1/')"
+                    RELEASE_REF="$(printf '%s\n' "$CANDIDATES" | grep -m1 -- '-linux$' || printf '%s\n' "$CANDIDATES" | grep -m1 -v -- '-' || true)"
+                    [ -n "$RELEASE_REF" ] || { echo "[ERROR] Version $DB_VERSION was not found in releases; pass the release tag instead (xYYYYMMDD[.N][-linux])"; exit 1; }
+                    ;;
+            esac
+            ;;
+    esac
+    [ -n "${DB_BASE_URL:-}" ] || BASE_URL="${VERSION_BASE_URL}${RELEASE_REF}"
+    TARGET_VERSION="$(printf '%s' "$RELEASE_REF" | sed -E 's/^x20([0-9]{2})([0-9]{4})/\1.\2/; s/-[a-z0-9]+$//')"
+fi
 
 offline_manifest() {
     cat << EOF
@@ -123,6 +150,10 @@ install_binary() {
     fi
     mv -f "$INSTALL_DIR/api.new" "$INSTALL_DIR/api"
     log "[OK] binary installed (previous kept as api.prev for 'db rollback')"
+    if [ -n "$TARGET_VERSION" ]; then
+        [ -f "$INSTALL_DIR/VERSION" ] && cp -f "$INSTALL_DIR/VERSION" "$INSTALL_DIR/VERSION.prev"
+        printf '%s\n' "$TARGET_VERSION" > "$INSTALL_DIR/VERSION"
+    fi
 }
 
 
@@ -147,6 +178,15 @@ if [ -z "$VLLM_VERSION" ]; then
 fi
 log "[UPDATE] target: app $(manifest_get version), vLLM $VLLM_VERSION, uv $UV_VERSION, torch index ${TORCH_INDEX:-auto}"
 
+[ -n "$TARGET_VERSION" ] || TARGET_VERSION="$(manifest_get version)"
+version_lt() { awk -v a="$1" -v b="$2" 'BEGIN { n = split(a, x, "."); m = split(b, y, "."); k = (n > m) ? n : m
+    for (i = 1; i <= k; i++) { p = (i <= n) ? x[i] + 0 : 0; q = (i <= m) ? y[i] + 0 : 0; if (p < q) exit 0; if (p > q) exit 1 } exit 1 }'; }
+INSTALLED_VERSION="$(cat "$INSTALL_DIR/VERSION" 2>/dev/null || true)"
+if [ -n "$TARGET_VERSION" ] && [ -n "$INSTALLED_VERSION" ] && version_lt "$TARGET_VERSION" "$INSTALLED_VERSION" && [ "${DB_ALLOW_DOWNGRADE:-0}" != "1" ]; then
+    echo "[ERROR] $TARGET_VERSION is older than the installed $INSTALLED_VERSION. Data written by the newer version may become unreadable."
+    echo "        Use 'db rollback' to return to the previous version, or set DB_ALLOW_DOWNGRADE=1 to force."
+    exit 1
+fi
 WAS_ACTIVE=0
 if [ -z "$DB_NO_SERVICE" ]; then
     { systemctl is-active --quiet db 2>/dev/null || systemctl is-active --quiet digitalbase 2>/dev/null; } && WAS_ACTIVE=1
@@ -419,10 +459,12 @@ fi
 if [ -f .update-requested ]; then
     UPDATE_URL=$(head -1 .update-requested)
     ENGINE_SPEC=$(sed -n 2p .update-requested)
+    PRODUCT_VERSION=$(sed -n 3p .update-requested)
     rm -f .update-requested
     touch .update-running
     DB_INSTALL_DIR="$(pwd -P)"; export DB_INSTALL_DIR
     if [ -n "$ENGINE_SPEC" ]; then DB_VLLM_VERSION="$ENGINE_SPEC"; DB_SGLANG_VERSION="$ENGINE_SPEC"; export DB_VLLM_VERSION DB_SGLANG_VERSION; fi
+    if [ -n "$PRODUCT_VERSION" ]; then DB_VERSION="$PRODUCT_VERSION"; DB_ALLOW_DOWNGRADE=1; export DB_VERSION DB_ALLOW_DOWNGRADE; fi
     echo "$(_ts) [UPDATE] running installer: $UPDATE_URL" >> update.log
     echo "[UPDATE] running installer: $UPDATE_URL"
     RC=1
@@ -587,6 +629,11 @@ rollback_binary() {
     mv -f "$DB_HOME/api" "$DB_HOME/api.rollback" \
         && mv -f "$DB_HOME/api.prev" "$DB_HOME/api" \
         && mv -f "$DB_HOME/api.rollback" "$DB_HOME/api.prev" || return 1
+    if [ -f "$DB_HOME/VERSION.prev" ]; then
+        mv -f "$DB_HOME/VERSION" "$DB_HOME/VERSION.rollback" 2>/dev/null || true
+        mv -f "$DB_HOME/VERSION.prev" "$DB_HOME/VERSION"
+        [ -f "$DB_HOME/VERSION.rollback" ] && mv -f "$DB_HOME/VERSION.rollback" "$DB_HOME/VERSION.prev"
+    fi
     if [ -d "$DB_HOME/venv.prev" ]; then
         mv "$DB_HOME/venv" "$DB_HOME/venv.rollback" \
             && mv "$DB_HOME/venv.prev" "$DB_HOME/venv" \
