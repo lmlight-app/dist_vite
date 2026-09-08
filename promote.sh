@@ -78,6 +78,7 @@ echo "  ✓ latest.json (version $VERSION, vllm $VLLM_VERSION, sglang $SGLANG_VE
 echo "Uploading to R2..."
 rclone copy "$TMPDIR/" "$BUCKET/vite-latest/" --progress
 rclone copy "$TMPDIR/" "$BUCKET/vite-$TAG/" --progress
+rclone copy "$TMPDIR/" "$BUCKET/vite-$VERSION/" --progress
 
 echo "Uploading scripts to R2..."
 SCRIPT_DIR="$(cd "$(dirname "$0")/scripts" && pwd)"
