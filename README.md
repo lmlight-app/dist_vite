@@ -108,7 +108,7 @@ DIR に置くもの（同じ arch / CUDA のオンライン機で取得）:
 | `lmlight-vite-linux-<arch>` / `.sha256` | 本体バイナリと checksum | `https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-latest/` |
 | `latest.json` | 版マニフェスト | 同上（`--vllm-version` を渡す場合は省略可） |
 | `uv` | uv バイナリ（`uv_version` と同じ版） | https://github.com/astral-sh/uv/releases の `uv-<arch>-unknown-linux-gnu.tar.gz` を展開 |
-| `*.whl` | vLLM（または `sglang[all]`）と `openai-whisper` の wheel 一式 | `pip download "vllm==<version>" "openai-whisper>=20231117" --dest DIR`（必要なら `--extra-index-url <torch index>`） |
+| `*.whl` | vLLM（または `sglang[all]`）と `faster-whisper` の wheel 一式 | `pip download "vllm==<version>" "faster-whisper>=1.1" nvidia-cublas-cu12 "nvidia-cudnn-cu12==9.*" --dest DIR`（必要なら `--extra-index-url <torch index>`） |
 | `hf-cache.tar`（任意） | 配信するモデルの HuggingFace キャッシュ | オンライン機の `~/.cache/huggingface` を tar |
 
 加えて、対象機には `python3.13`（`DB_PYTHON_VER` で変更可）が必要です（uv はオフラインでは interpreter を取得できません）。不足があると installer が必要一覧を表示して停止します。
@@ -382,12 +382,13 @@ Whisper モデルを選んでインストールします（引数なしは `tiny
 | `base` | 142MB | バランス |
 | `small` | 466MB | 高精度 |
 | `medium` | 1.5GB | 高精度・GPU 推奨 |
-| `large` | 2.9GB | 最高精度・GPU 必須 |
+| `large` | 3.0GB | 最高精度・GPU 必須（large-v3） |
+| `distil-large` | 1.5GB | large 相当の精度で medium 並みの速度（`--gpu` / `--ct2` のみ） |
 
 ```bash
-# Linux / macOS（モデルを引数で指定。--gpu で GPU 版）
-curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-transcribe.sh | bash -s -- small
-curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-transcribe.sh | bash -s -- small --gpu
+# Linux / macOS（モデルを引数で指定。--gpu で faster-whisper + CUDA、--lang で既定言語。詳細は TRANSCRIBE.md）
+curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-transcribe.sh | bash -s -- small --lang ja
+curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-transcribe.sh | bash -s -- medium --gpu --lang ja
 
 # Windows（位置引数でモデル指定）
 & ([scriptblock]::Create((irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-transcribe.ps1))) small

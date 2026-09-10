@@ -8,7 +8,6 @@
 #
 # Brings up:
 #   • postgres   (with pgvector)
-#   • whisper    (audio transcription)
 #   • api        (DigitalBase API + UI on port 8000)
 #
 # Ollama itself runs on the HOST (not in this compose), so the API
@@ -41,22 +40,17 @@ services:
       retries: 10
     restart: unless-stopped
 
-  whisper:
-    image: onerahmet/openai-whisper-asr-webservice:latest
-    environment:
-      ASR_MODEL: ${ASR_MODEL:-base}
-      ASR_ENGINE: openai_whisper
-    restart: unless-stopped
-
   api:
     image: lmlight/digitalbase:${IMAGE_TAG:-1}
     env_file: .env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-digitalbase}:${POSTGRES_PASSWORD:-digitalbase}@postgres:5432/${POSTGRES_DB:-digitalbase}
-      WHISPER_API_URL: http://whisper:9000
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
     volumes:
       - ./license.lic:/app/data/license.lic:ro
+      # 文字起こし (任意): Whisper モデルを ./stt-model/whisper/ に置く (ggml-*.bin または ct2-*/)。
+      # 取得は install-transcribe.sh と同じ URL (TRANSCRIBE.md)。空なら文字起こしは無効のまま
+      - ./stt-model:/app/stt-model
     ports:
       - "${API_PORT:-8000}:8000"
     extra_hosts:
@@ -64,8 +58,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      whisper:
-        condition: service_started
     restart: unless-stopped
 
 volumes:

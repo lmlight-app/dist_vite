@@ -8,7 +8,6 @@
 #
 # Brings up everything for a single-host GPU deployment:
 #   • postgres   (with pgvector extension auto-initialized)
-#   • whisper    (audio transcription)
 #   • vllm-chat  (LLM chat inference, NVIDIA GPU)
 #   • vllm-embed (embedding model for RAG)
 #   • api        (DigitalBase API + UI on port 8000)
@@ -41,13 +40,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-    restart: unless-stopped
-
-  whisper:
-    image: onerahmet/openai-whisper-asr-webservice:latest
-    environment:
-      ASR_MODEL: ${ASR_MODEL:-base}        # tiny | base | small | medium | large
-      ASR_ENGINE: openai_whisper
     restart: unless-stopped
 
   # vLLM chat (LLM inference)
@@ -90,19 +82,19 @@ services:
     environment:
       # Override env_file values so in-compose service names always win
       DATABASE_URL: postgresql://${POSTGRES_USER:-digitalbase}:${POSTGRES_PASSWORD:-digitalbase}@postgres:5432/${POSTGRES_DB:-digitalbase}
-      WHISPER_API_URL: http://whisper:9000
       VLLM_BASE_URL: http://vllm-chat:8000
       VLLM_EMBED_BASE_URL: http://vllm-embed:8000
       VLLM_AUTO_START: "false"
     volumes:
       - ./license.lic:/app/data/license.lic:ro
+      # 文字起こし (任意): Whisper モデルを ./stt-model/whisper/ に置く (ggml-*.bin または ct2-*/)。
+      # 取得は install-transcribe.sh と同じ URL (TRANSCRIBE.md)。空なら文字起こしは無効のまま
+      - ./stt-model:/app/stt-model
     ports:
       - "${API_PORT:-8000}:8000"
     depends_on:
       postgres:
         condition: service_healthy
-      whisper:
-        condition: service_started
       vllm-chat:
         condition: service_started
       vllm-embed:
