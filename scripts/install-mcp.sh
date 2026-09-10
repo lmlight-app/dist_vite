@@ -86,6 +86,7 @@ set_env() {  # 既存キーは置換、無ければ追記
     if grep -q "^${key}=" "$ENV_FILE"; then
         sed -i.bak "s|^${key}=.*|${key}=${value}|" "$ENV_FILE" && rm -f "$ENV_FILE.bak"
     else
+        [ -z "$(tail -c1 "$ENV_FILE")" ] || printf '\n' >> "$ENV_FILE"   # 末尾改行の無い .env に追記すると前の行と連結する
         printf '%s=%s\n' "$key" "$value" >> "$ENV_FILE"
     fi
 }

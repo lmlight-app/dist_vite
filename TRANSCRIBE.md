@@ -110,6 +110,8 @@ irm https://raw.githubusercontent.com/lmlight-app/dist_vite/main/scripts/install
 | `WHISPER_VAD_FILTER` | 無音区間を除いてから認識 (faster-whisper のみ、幻聴対策) | 既定 `1` のまま |
 | `WHISPER_COMPUTE_TYPE` | faster-whisper の精度 (`float16` / `int8` 等) | 空で自動 (CUDA=float16、CPU=int8) |
 | `WHISPER_MODEL` | モデルが複数ある時の絞り込み、またはモデルのパス | インストーラが設定 |
+| `WHISPER_SILENCE_RMS` | この RMS 未満は無音として whisper を呼ばず空文字 (無音の幻聴対策。既定 `0.002`、`0` で無効) | 既定のまま |
+| `WHISPER_CPP_THREADS` | whisper.cpp のスレッド数 (空 = コア数、上限 16。GB10 実測で既定 4 → 16 で 2.5 倍速) | 空のまま |
 
 ## 仕様
 
