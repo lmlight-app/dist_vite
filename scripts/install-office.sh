@@ -49,11 +49,11 @@ echo "Office画像化 (LibreOffice) をインストールします (ディスク
 
 if command -v apt-get >/dev/null 2>&1; then
     $SUDO apt-get update -qq
-    DEBIAN_FRONTEND=noninteractive $SUDO apt-get install -y --no-install-recommends libreoffice-impress
+    DEBIAN_FRONTEND=noninteractive $SUDO apt-get install -y --no-install-recommends libreoffice-impress libreoffice-calc libreoffice-writer
 elif command -v dnf >/dev/null 2>&1; then
-    $SUDO dnf install -y libreoffice-impress
+    $SUDO dnf install -y libreoffice-impress libreoffice-calc libreoffice-writer
 elif command -v zypper >/dev/null 2>&1; then
-    $SUDO zypper install -y libreoffice-impress
+    $SUDO zypper install -y libreoffice-impress libreoffice-calc libreoffice-writer
 else
     echo "パッケージマネージャが見つかりません。AppImage で手動インストールしてください:"
     echo "  1) https://ja.libreoffice.org/download/appimage/ から Basic AppImage を取得"
