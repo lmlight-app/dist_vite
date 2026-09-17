@@ -13,6 +13,7 @@
 | Windows | `install-windows.ps1` | Ollama | `%LOCALAPPDATA%\db` |
 | Linux + GPU | `install-linux-vllm.sh` | vLLM | `~/.local/db` |
 | Docker | `install-docker.sh` | vLLM / Ollama | `~/digitalbase`（`/app/data` に mount） |
+| pip / uv | `uvx digitalbase` | vLLM / Ollama | `~/.local/db` |
 | Kubernetes | Docker Hub の image を pull | vLLM / Ollama | 任意（Secret + PVC） |
 
 > Bare Metal は単一バイナリ、Docker は単一 image です。edition は `.env` の `LLM_BACKEND`（`vllm` または `ollama`）で決まります。既定は Docker / GPU が vllm、Bare Metal デスクトップが ollama です。
@@ -113,7 +114,29 @@ DIR に置くもの（同じ arch / CUDA のオンライン機で取得）:
 
 加えて、対象機には `python3.13`（`DB_PYTHON_VER` で変更可）が必要です（uv はオフラインでは interpreter を取得できません）。不足があると installer が必要一覧を表示して停止します。
 
-### Docker
+### pip / uv（エンジニア向け、Docker 不要）
+
+`digitalbase` は PyPI に wheel（Cython 済、Python 3.13 用、Linux x86_64 / aarch64・macOS arm64・Windows x86_64）として公開しています。uv があれば 1 行で起動できます。PostgreSQL（pgvector）だけは別途用意し、作業ディレクトリの `.env` に `DATABASE_URL` を書きます。
+
+```bash
+# 試す（DB も同梱。この 1 行で Python 3.13 の取得・インストール・PostgreSQL (pgvector) の起動まで）
+uvx --python 3.13 --from 'digitalbase[demo]' digitalbase serve --demo
+
+# 既存の PostgreSQL に繋ぐ（作業ディレクトリの .env に DATABASE_URL）
+uvx --python 3.13 digitalbase serve --port 8000
+
+# 常設（`digitalbase` コマンドとして入れる。更新は uv tool upgrade digitalbase）
+uv tool install --python 3.13 digitalbase
+digitalbase serve
+```
+
+- `--demo` は `~/.local/db/demo/`（`--data DIR` で変更可）に PostgreSQL 18 + pgvector を initdb して起動し、files / MCP もその下に置きます。評価用で、本番は外部の PostgreSQL を使ってください。license は同じく必要です（起動後に 管理画面 > ライセンス から upload 可）。
+- `.env`（カレントディレクトリ）: `DATABASE_URL=postgresql://digitalbase:...@localhost:5432/digitalbase`、`LLM_BACKEND=ollama|vllm`。`JWT_SECRET` は未指定なら `.env` の隣に自動生成して永続します。
+- 既定の置き場は bare metal と同じ `~/.local/db`（`license.lic`、`files/`、`mcp/`）。license はそこか `LICENSE_FILE_PATH` で指定します。
+- 閉域では PyPI の代わりに社内 index（`UV_INDEX_URL=https://<社内>/simple`）に同じ wheel を置けば同じコマンドで入ります。
+- pip でも入りますが、トップレベルの package 名が一般的（`common` / `auth` など）なので、共有 venv ではなく `uv tool` / `pipx` の隔離環境を推奨します。
+
+## Docker
 
 Docker Hub で配布している単一イメージ `lmlight/digitalbase:latest` を使用します。vLLM 版・Ollama 版は共通のイメージで、エディションは `.env` の `LLM_BACKEND` によって切り替わります。PostgreSQL（pgvector）および LLM（vLLM / Ollama）はイメージに含まれないため、別途用意してください。
 
@@ -121,7 +144,7 @@ Docker Hub で配布している単一イメージ `lmlight/digitalbase:latest` 
 docker pull lmlight/digitalbase:latest
 ```
 
-導入方法は次の2通りです。セットアップを自動化する「A. install-docker.sh」と、既存のインフラへ組み込む「B. 手動 docker run」のいずれかを選択します。
+導入方法は次の3通りです。セットアップを自動化する「A. install-docker.sh」、同じ構成を 1 ファイルで起こす「B. docker compose」、既存のインフラへ組み込む「C. 手動 docker run」のいずれかを選択します。
 
 #### A. install-docker.sh（推奨）
 
@@ -149,7 +172,23 @@ curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/inst
 - データは既定で `~/digitalbase`（`DB_INSTALL_DIR` で変更可）に保存し、コンテナの `/app/data` にマウントします。`.env` も同じディレクトリに置かれます。
 - 起動・停止・ログは標準の `docker` コマンドで操作します（`docker start` / `docker stop` / `docker logs -f digitalbase-app`）。
 
-#### B. 手動 docker run（既存インフラへの組み込み）
+#### B. docker compose
+
+A と同じ構成（PostgreSQL（pgvector）コンテナ + アプリケーションコンテナ）を 1 つの compose ファイルで起こします。中身が読めて差分管理でき、`curl | bash` を許可しない環境や、自前の compose / 基盤に取り込む場合に向きます。
+
+```bash
+mkdir -p digitalbase/data && cd digitalbase
+curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/docker-compose.yml -o docker-compose.yml
+cp /path/to/license.lic data/license.lic     # 無ければ起動後に 管理画面 > ライセンス から upload
+docker compose up -d
+```
+
+- 設定は同じディレクトリの `.env` に書きます（`APP_PORT` / `LLM_BACKEND=ollama|vllm` / `DB_PASSWORD` / `DB_IMAGE_TAG` / `OLLAMA_BASE_URL` / `VLLM_BASE_URL` / `VLLM_EMBED_BASE_URL`）。
+- `JWT_SECRET` と `OAUTH_ENCRYPTION_KEY` は未指定なら初回起動時に `data/` に生成して永続します（コンテナを作り直しても変わりません）。固定したい場合は `app.environment` に追記します。
+- データは `data/`（アプリ）と `postgres-data/`（DB）。バックアップはこのディレクトリごと。
+- 更新は `docker compose pull && docker compose up -d`、停止は `docker compose down`（データは残ります）。
+
+#### C. 手動 docker run（既存インフラへの組み込み）
 
 上記 A の処理のうち ①③④⑥ を手動で行う方法です。前提として、pgvector を導入済みの PostgreSQL（RAG 用）と、vLLM（ポート 8080 / 8081）または Ollama（ポート 11434）を用意してください。
 
