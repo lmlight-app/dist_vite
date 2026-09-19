@@ -13,6 +13,10 @@
 # 固定したい時は app.environment に JWT_SECRET=<長い乱数> を足す。
 # データは全部この dir の下 (data/ = アプリ、postgres-data/ = DB)。バックアップはこの dir ごと。
 #
+# 読み上げ (任意): docker compose --profile tts up -d で Kokoro (OpenAI 互換) を同じ network に立て、
+#   管理画面 > 環境変数 で TTS_ENGINE=openai / TTS_BASE_URL=http://tts:8880/v1 / TTS_MODEL=kokoro / TTS_VOICE=jf_alpha
+#   (VOICEVOX にするなら image を voicevox/voicevox_engine:cpu-latest、TTS_ENGINE=voicevox / TTS_BASE_URL=http://tts:50021)
+#
 # 更新:   docker compose pull && docker compose up -d
 # 停止:   docker compose down            (データは残る)
 # 削除:   docker compose down -v && rm -rf data postgres-data
@@ -52,3 +56,8 @@ services:
       - "host.docker.internal:host-gateway"   # ホストの Ollama / vLLM に container から届くように
     volumes:
       - ./data:/app/data                       # files/ license.lic mcp/ .env.jwt_secret
+
+  tts:
+    image: ghcr.io/remsky/kokoro-fastapi-cpu:latest
+    restart: unless-stopped
+    profiles: ["tts"]                          # 既定では起動しない (= --profile tts で有効化)
