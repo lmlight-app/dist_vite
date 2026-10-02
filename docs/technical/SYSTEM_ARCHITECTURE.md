@@ -221,23 +221,15 @@ graph LR
 
 ### パターン2: Docker Compose
 
-Docker Compose で全コンポーネントをコンテナ化。PostgreSQL も含まれるため個別インストール不要。イメージは `lmlight/digitalbase:latest` / `lmlight/digitalbase:latest` (`linux/amd64` + `linux/arm64`)。
+配布する `docker-compose.yml` 1 ファイルで PostgreSQL (pgvector) とアプリを起動 (イメージは `lmlight/digitalbase`、`linux/amd64` + `linux/arm64`)。LLM は既定でホスト側の Ollama / vLLM に繋ぎ、GPU ホストでは `docker-compose.vllm.yml` を重ねて vLLM も同梱できる。既存の PostgreSQL / LLM は `.env` の URL で差し替え。
 
 ### パターン3: 分散配置
 
 GPUサーバーにLLMエンジン、別サーバーに DigitalBase + DB を配置。`.env` で `OLLAMA_BASE_URL` / `VLLM_BASE_URL` を指定して接続。
 
-### パターン4: Kubernetes (Helm / Kustomize)
+### パターン4: Kubernetes
 
-本番・複数ノード・HA 構成向け。GPU 配置によって 3 モードから選択。
-
-| モード | GPU 配置 | 特徴 |
-|---|---|---|
-| `vllm-in-cluster` | クラスタ内 GPU ノード | `nvidia.com/gpu` ラベル必須 |
-| `vllm-external` | クラスタ外 GPU マシン | 既存 GPU 資産活用 |
-| `vllm-managed` | マネージド推論 API | GPU インフラ不要、OpenAI 互換 |
-
-Helm chart は `deploy/helm/digitalbase`、Kustomize マニフェストは `deploy/k8s/`。詳細は `deploy/PARTNER-GUIDE.md` を参照。
+本番・複数ノード向け。専用 chart は配布せず、Docker Hub の単一イメージを自前のマニフェストで配備する (compose と同じ構成: 環境変数は Secret / ConfigMap、`/app/data` は PVC、PostgreSQL と LLM は別 Pod かクラスタ外)。GPU はクラスタ内ノード・クラスタ外 GPU 機・マネージド推論 API のどれでも `VLLM_BASE_URL` 等の向き先を変えるだけ。
 
 ---
 

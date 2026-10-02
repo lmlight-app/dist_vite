@@ -1,6 +1,6 @@
 # DigitalBase 利用マニュアル
 
-バックエンドは単一の `api`（API + frontend 同梱）に統合されており、Bare Metal は `~/.local/db` に1バイナリ、Docker は1イメージで配備します。vLLM と Ollama の切り替えは `.env` の `LLM_BACKEND` で行います。運用コマンドは Bare Metal が `db`、Docker は標準の `docker`（コンテナ名 `digitalbase-app`）です。
+バックエンドは単一の `api`（API + frontend 同梱）に統合されており、Bare Metal は `~/.local/db` に1バイナリ、Docker は1イメージで配備します。vLLM と Ollama の切り替えは `.env` の `LLM_BACKEND` で行います。運用コマンドは Bare Metal が `db`、Docker は `docker compose` です。
 
 ---
 
@@ -12,7 +12,7 @@
 | macOS | `install-macos.sh` | Ollama | `~/.local/db` |
 | Windows | `install-windows.ps1` | Ollama | `%LOCALAPPDATA%\db` |
 | Linux + GPU | `install-linux-vllm.sh` | vLLM | `~/.local/db` |
-| Docker | `install-docker.sh` | vLLM / Ollama | `~/digitalbase`（`/app/data` に mount） |
+| Docker | `docker-compose.yml`（または `install-docker.sh`） | vLLM / Ollama | 任意のディレクトリ（`data/` を `/app/data` に mount） |
 | pip / uv | `uvx digitalbase` | vLLM / Ollama | `~/.local/db` |
 | Kubernetes | Docker Hub の image を pull | vLLM / Ollama | 任意（Secret + PVC） |
 
@@ -138,121 +138,67 @@ digitalbase serve
 
 ## Docker
 
-Docker Hub で配布している単一イメージ `lmlight/digitalbase:latest` を使用します。vLLM 版・Ollama 版は共通のイメージで、エディションは `.env` の `LLM_BACKEND` によって切り替わります。PostgreSQL（pgvector）および LLM（vLLM / Ollama）はイメージに含まれないため、別途用意してください。
+単一イメージ `lmlight/digitalbase` を Docker Hub で配布しています。vLLM 版・Ollama 版は共通のイメージで、`.env` の `LLM_BACKEND` で切り替わります。PostgreSQL（pgvector）と LLM（vLLM / Ollama）はイメージに含まれません。配備の正本は `docker-compose.yml` で、`install-docker.sh` はそれを置いて起動するだけの wrapper です。要 Docker Compose v2.24 以降。
 
-```bash
-docker pull lmlight/digitalbase:latest
-```
+#### docker compose（標準）
 
-導入方法は次の3通りです。セットアップを自動化する「A. install-docker.sh」、同じ構成を 1 ファイルで起こす「B. docker compose」、既存のインフラへ組み込む「C. 手動 docker run」のいずれかを選択します。
-
-#### A. install-docker.sh（推奨）
-
-イメージの取得、PostgreSQL（pgvector）コンテナとアプリケーションコンテナの起動、`.env` の生成までを自動で行います。
-
-```bash
-# vLLM 版（既定）
-curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-docker.sh | bash
-
-# Ollama 版
-curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-docker.sh | EDITION=ollama bash
-```
-
-スクリプトが自動で行う処理:
-
-1. イメージの取得（`docker pull`）
-2. `.env` の生成（`JWT_SECRET` / `OAUTH_ENCRYPTION_KEY` を含む）
-3. ネットワーク `digitalbase-net` の作成
-4. PostgreSQL（pgvector）コンテナ `digitalbase-postgres` を同ネットワーク上に起動し、`digitalbase` ユーザー・データベースを作成（拡張の有効化はアプリケーションが自動実行）
-5. アプリケーションコンテナの起動（`docker run`）
-6. ライセンスファイル配置の案内
-
-補足:
-
-- データは既定で `~/digitalbase`（`DB_INSTALL_DIR` で変更可）に保存し、コンテナの `/app/data` にマウントします。`.env` も同じディレクトリに置かれます。
-- 起動・停止・ログは標準の `docker` コマンドで操作します（`docker start` / `docker stop` / `docker logs -f digitalbase-app`）。
-
-#### B. docker compose
-
-A と同じ構成（PostgreSQL（pgvector）コンテナ + アプリケーションコンテナ）を 1 つの compose ファイルで起こします。中身が読めて差分管理でき、`curl | bash` を許可しない環境や、自前の compose / 基盤に取り込む場合に向きます。
-
-```bash
-mkdir -p digitalbase/data && cd digitalbase
-curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/docker-compose.yml -o docker-compose.yml
-cp /path/to/license.lic data/license.lic     # 無ければ起動後に 管理画面 > ライセンス から upload
-docker compose up -d
-```
-
-- 設定は同じディレクトリの `.env` に書きます（`APP_PORT` / `LLM_BACKEND=ollama|vllm` / `DB_PASSWORD` / `DB_IMAGE_TAG` / `OLLAMA_BASE_URL` / `VLLM_BASE_URL` / `VLLM_EMBED_BASE_URL`）。
-- `JWT_SECRET` と `OAUTH_ENCRYPTION_KEY` は未指定なら初回起動時に `data/` に生成して永続します（コンテナを作り直しても変わりません）。固定したい場合は `app.environment` に追記します。
-- データは `data/`（アプリ）と `postgres-data/`（DB）。バックアップはこのディレクトリごと。
-- 更新は `docker compose pull && docker compose up -d`、停止は `docker compose down`（データは残ります）。
-
-#### C. 手動 docker run（既存インフラへの組み込み）
-
-上記 A の処理のうち ①③④⑥ を手動で行う方法です。前提として、pgvector を導入済みの PostgreSQL（RAG 用）と、vLLM（ポート 8080 / 8081）または Ollama（ポート 11434）を用意してください。
-
-拡張の有効化（`CREATE EXTENSION vector`）およびスキーマ・テーブルの作成は、アプリケーションの起動時に自動で実行されます。pgvector 0.5 以降は trusted extension であるため、データベースの所有者である `digitalbase` ユーザーでも実行でき、スーパーユーザーは不要です（実行に失敗した場合は警告のみを出力し、RAG を無効化したうえで起動を継続します）。ただし、ユーザーとデータベースの作成だけは、事前にスーパーユーザーで行う必要があります（アプリケーションはユーザー・データベース自体を作成できません）。
-
-PostgreSQL は、次のいずれかの方法で用意します。
-
-```bash
-# 方法1: PostgreSQL を別途用意しない場合は、pgvector 同梱イメージで起動する
-#        （ユーザー・データベースも環境変数から自動的に作成される）
-docker run -d --name digitalbase-postgres --restart unless-stopped \
-  -e POSTGRES_USER=digitalbase -e POSTGRES_PASSWORD=digitalbase -e POSTGRES_DB=digitalbase \
-  -p 5432:5432 -v "$PWD/pgdata":/var/lib/postgresql/data \
-  pgvector/pgvector:pg16
-
-# 方法2: 既存の PostgreSQL を使用する場合は、pgvector を導入し、ユーザーとデータベースを作成する
-#        （拡張の有効化はアプリケーションの起動時に自動で実行される）
-#    # pgvector パッケージ:
-#    sudo apt install postgresql-17-pgvector      # Debian/Ubuntu（root コンテナは sudo 不要）
-#    brew install pgvector                        # macOS (Homebrew)
-#    # ユーザーとデータベースを作成（スーパーユーザーで実行。環境ごとに接続方法が異なる）:
-#    #   Linux:        sudo -u postgres psql -d postgres -c "CREATE USER digitalbase WITH PASSWORD 'digitalbase';"
-#    #   root コンテナ: su postgres -c "psql -d postgres -c \"CREATE USER digitalbase WITH PASSWORD 'digitalbase';\""
-#    #   macOS:        psql -d postgres -c "CREATE USER digitalbase WITH PASSWORD 'digitalbase';"
-#    #                 （Homebrew は OS ユーザーが superuser で "postgres" ロールは無い。
-#    #                   postgres ロールがある環境なら psql -U postgres でも可）
-#    # その後、DATABASE_URL に合わせて CREATE DATABASE digitalbase OWNER digitalbase; も実行
-```
-
-続いて、アプリケーションを起動します。
+PostgreSQL（pgvector）とアプリを 1 つの compose ファイルで起こします。
 
 ```bash
 mkdir digitalbase && cd digitalbase
-cat > .env <<EOF
-LLM_BACKEND=vllm
-DATABASE_URL=postgresql://digitalbase:digitalbase@host.docker.internal:5432/digitalbase
-VLLM_BASE_URL=http://host.docker.internal:8080
-VLLM_EMBED_BASE_URL=http://host.docker.internal:8081
-JWT_SECRET=$(openssl rand -hex 32)
-OAUTH_ENCRYPTION_KEY=$(openssl rand -hex 32)
-AUTH_MODE=local
-EOF
-cp /path/to/license.lic ./license.lic
-
-docker run -d --name digitalbase-app \
-  -p 8000:8000 \
-  --env-file .env \
-  -v "$PWD":/app/data \
-  --add-host=host.docker.internal:host-gateway \
-  --restart unless-stopped \
-  lmlight/digitalbase:latest
+curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/docker-compose.yml -o docker-compose.yml
+docker compose up -d
+# → http://localhost:8000  (admin@local / admin123)
 ```
 
-スキーマ・テーブル・初期管理者ユーザーの作成、および pgvector 拡張の有効化は、アプリケーションの起動時に自動で実行されます（PostgreSQL に pgvector が導入済みであることのみが前提です）。起動後、http://localhost:8000 にアクセスし、`admin@local` / `admin123` でログインしてください。Ollama 版を使用する場合は、`.env` を `LLM_BACKEND=ollama` および `OLLAMA_BASE_URL=http://host.docker.internal:11434` に変更します。
+- 設定は同じディレクトリの `.env`（無くても動きます）。雛形は `docker.env.example`（`curl -fsSL .../vite-scripts/docker.env.example -o .env`）。`APP_PORT` / `LLM_BACKEND=ollama|vllm` / `DB_IMAGE_TAG` / `DB_PASSWORD` のほか、`OPENAI_API_KEY` や `AUTH_MODE` など `.env` の全行がそのままアプリに渡ります。
+- 既定はホスト側の Ollama（`host.docker.internal:11434`）／vLLM（8080 / 8081）に繋ぎます。
+- 既存の PostgreSQL / LLM を使う場合は `.env` に `DATABASE_URL` / `OLLAMA_BASE_URL` / `VLLM_BASE_URL` / `VLLM_EMBED_BASE_URL` を書きます（`db` サービスは消して構いません）。DB 側の準備は「手動でのデータベース作成」を参照。
+- データは `data/`（ファイル・`license.lic`・自動生成する鍵）と `postgres-data/`（DB）。バックアップはこのディレクトリごと。
+- ライセンスは `data/license.lic` に置くか、起動後に 管理画面 > ライセンス から upload。
+- 更新は `docker compose pull && docker compose up -d`、停止は `docker compose down`（データは残ります）、削除は `docker compose down && sudo rm -rf data postgres-data`（コンテナは root で動くため、`data/` の中身は root 所有になります）。
+- 本番は `DB_IMAGE_TAG=x2026MMDD` で版を固定してください（`latest` は更新のたびに動きます）。
 
-> データベースの所有者以外のユーザーで接続しており `CREATE EXTENSION` に失敗する場合のみ、スーパーユーザーで一度 `CREATE EXTENSION vector` を実行してください。
+#### GPU で vLLM も同梱する
+
+NVIDIA GPU + NVIDIA Container Toolkit のホストでは、vLLM（chat / embed）も同じ compose で起こせます。
+
+```bash
+curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/docker-compose.vllm.yml -o docker-compose.vllm.yml
+docker compose -f docker-compose.yml -f docker-compose.vllm.yml up -d
+```
+
+モデルは初回起動時に Hugging Face から取得し、ホストの `~/.cache/huggingface` に残ります。`.env` の `VLLM_CHAT_MODEL`（既定 `Qwen/Qwen3-4B`）/ `VLLM_EMBED_MODEL`（既定 `Qwen/Qwen3-Embedding-0.6B`）/ `LLM_CONTEXT_LENGTH` / `VLLM_GPU_MEMORY_UTILIZATION_CHAT`・`_EMBED` / `VLLM_IMAGE_TAG` / `HF_TOKEN` で調整します。
+
+#### install-docker.sh（`curl | bash` で済ませたい場合）
+
+上記と同じことを自動で行います。Docker と compose の確認 → compose ファイルを `~/digitalbase`（`DB_INSTALL_DIR` で変更可）に置く → `.env` が無ければ雛形から作る → `pull` → `up -d`。再実行すると更新になります（compose ファイルは最新に差し替え、`.env` とデータは保持）。
+
+```bash
+curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-docker.sh | bash
+curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-docker.sh | GPU=1 bash          # vLLM 同梱
+curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-docker.sh | APP_PORT=8080 bash  # 初回の .env に書く
+```
+
+#### 手動でのデータベース作成（既存の PostgreSQL を使う場合）
+
+同梱の `db` サービスを使わず RDS 等の既存 PostgreSQL に繋ぐ場合は、pgvector を導入したうえで、ユーザーとデータベースだけを事前にスーパーユーザーで作ります（アプリはユーザー・データベース自体を作成できません）。
+
+```bash
+curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/db_setup.sh | DB_PASS=<任意のパスワード> bash
+```
+
+または SQL で `CREATE USER digitalbase WITH PASSWORD '...'; CREATE DATABASE digitalbase OWNER digitalbase;` を実行します。拡張の有効化（`CREATE EXTENSION vector`）とスキーマ・テーブル・初期管理者の作成はアプリの起動時に自動で行われます（pgvector 0.5 以降は trusted extension なので DB 所有者で実行できます。失敗した場合は警告を出して RAG を無効のまま起動します）。
 
 ### Kubernetes
 
-専用 chart は配布していません。Docker Hub の image を引いて、自前の manifest で配備してください（env は Secret/ConfigMap、`/app/data` は PVC）。
+専用の chart は配布していません。Docker Hub のイメージを自前のマニフェストで配備してください。compose と同じ構成にすれば動きます。
 
-```
-lmlight/digitalbase:latest
-```
+- イメージ: `lmlight/digitalbase:<tag>`（ポート 8000、`/health` にヘルスチェックあり。`latest` ではなく版を固定）
+- 設定: 環境変数（`.env` と同じ名前）。`DATABASE_URL` と鍵類は Secret、それ以外は ConfigMap
+- `/app/data`: PVC（ファイル・`license.lic`・自動生成する鍵の置き場。1 Pod で ReadWriteOnce）
+- PostgreSQL（pgvector）と vLLM / Ollama は別 Pod またはクラスタ外のサービス。URL を `DATABASE_URL` / `VLLM_BASE_URL` 等で渡す
+- ライセンスは subscription を使い、Secret を `/app/data/license.lic` に mount するか、起動後に管理画面から upload
 
 ---
 
@@ -261,7 +207,7 @@ lmlight/digitalbase:latest
 `.env` ファイル位置:
 - Linux / macOS: `~/.local/db/.env`
 - Windows: `%LOCALAPPDATA%\db\.env`
-- Docker: `~/digitalbase/.env`（`install-docker.sh` が自動生成、`DB_INSTALL_DIR` で変更可）
+- Docker: `docker-compose.yml` と同じディレクトリの `.env`（任意。雛形は `docker.env.example`）
 
 ### vLLM 版（既定。GPU / Docker 向け）
 
@@ -302,11 +248,11 @@ lmlight/digitalbase:latest
 
 ### Docker 版
 
-`install-docker.sh` が `.env` を自動生成。docker 特有の差分:
+`docker-compose.yml` が compose 内の配線を環境変数で渡すため、`.env` に書くのは変えたい値だけです。docker 特有の差分:
 
 | 環境変数 | docker 特有設定 |
 |---|---|
-| `DATABASE_URL` | 同 docker network 内 PostgreSQL → `digitalbase-postgres:5432` |
+| `DATABASE_URL` | compose 内の PostgreSQL → `db:5432`（既存 DB を使う時だけ `.env` で上書き） |
 | `OLLAMA_BASE_URL` | host の Ollama 参照 → `http://host.docker.internal:11434` |
 | `OLLAMA_AUTO_START` | `false`（必須。1 container 1 process が原則で、container 内では spawn できません） |
 | `VLLM_BASE_URL` | 外部 vLLM 参照 → `http://host.docker.internal:8080` |
@@ -348,7 +294,7 @@ schema 構成: `public`（主要 entity）/ `approval` / `helpdesk` / `vision` /
 `license.lic` を取得後:
 - Linux / macOS: `~/.local/db/license.lic`
 - Windows: `%LOCALAPPDATA%\db\license.lic`
-- Docker: `~/digitalbase/license.lic` に置いて `docker restart digitalbase-app`、または admin UI から upload
+- Docker: `data/license.lic` に置く（`docker compose restart app` で読み直し）、または admin UI から upload
 - Kubernetes: Secret を `/app/data/license.lic` に mount
 
 ---
@@ -360,11 +306,11 @@ schema 構成: `public`（主要 entity）/ `approval` / `helpdesk` / `vision` /
 | Edition | start | stop |
 |---|---|---|
 | Linux / macOS / Win (vLLM / Ollama) | `db start` | `db stop` |
-| Docker (`digitalbase-app`) | `docker start digitalbase-app` | `docker stop digitalbase-app` |
+| Docker | `docker compose up -d` | `docker compose down` |
 
 Linux (systemd) では `db restart` / `db status` / `db logs`、Linux / macOS では `db rollback`（直前のバイナリへ戻す）も使えます。
 
-ログは、Bare Metal では `db start` を実行した前景に出力されます。Docker では `docker logs -f digitalbase-app` で確認できます。
+ログは、Bare Metal では `db start` を実行した前景に出力されます。Docker では `docker compose logs -f app` で確認できます。
 
 ### アクセス
 
@@ -392,10 +338,8 @@ Docker の場合は `docker pull lmlight/digitalbase:latest` を実行してか�
 # Linux / macOS (vLLM / Ollama 共通)
 rm -rf ~/.local/db && sudo rm -f /usr/local/bin/db
 
-# Docker
-docker rm -f digitalbase-app digitalbase-postgres
-docker network rm digitalbase-net
-rm -rf ~/digitalbase
+# Docker (compose を置いたディレクトリで。中のファイルは root 所有)
+docker compose down && sudo rm -rf data postgres-data
 ```
 
 Windows:
@@ -481,7 +425,7 @@ apt install -y build-essential python3-dev ffmpeg ninja-build
 ### ディレクトリ構造
 
 ```
-~/.local/db/                  # Bare Metal の data 実体 (Docker は ~/digitalbase)
+~/.local/db/                  # Bare Metal の data 実体 (Docker は compose を置いた dir の data/)
 ├── api                       # binary (= API + frontend 同梱、Bare Metal のみ)
 ├── api.prev                  # 更新前の binary (db rollback で入れ替え)
 ├── update.log                # 更新手順ログ (UTC)

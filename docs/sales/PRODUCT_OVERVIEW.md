@@ -24,7 +24,7 @@ DigitalBase は、オンプレミス環境で動作する LLM（大規模言語�
 ### ワンコマンドインストール
 - macOS / Linux / Windows 対応
 - 1つのコマンドでインストール完了（Node.js 不要、API + フロントが単一バイナリ）
-- Docker / Docker Compose / Kubernetes (Helm / Kustomize) にも対応
+- Docker Compose / Kubernetes にも対応 (単一イメージ)
 
 ### マルチLLMエンジン
 - **単一バイナリで 3 つの LLM バックエンドを `.env` の `LLM_BACKEND` で切替**:
@@ -230,9 +230,8 @@ irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-win
 
 Docker / Kubernetes による導入にも対応:
 
-- **Docker イメージ**: `lmlight/digitalbase:latest` / `lmlight/digitalbase:latest` (`linux/amd64` + `linux/arm64`)
-- **Helm chart**: `deploy/helm/digitalbase` (3 モード: クラスタ内 GPU / 外部 GPU / マネージド推論 API)
-- **Kustomize**: `deploy/k8s/` (overlay で構成切替)
+- **Docker イメージ**: `lmlight/digitalbase` (`linux/amd64` + `linux/arm64`)。配備は `docker-compose.yml` 1 ファイル (PostgreSQL 同梱、GPU ホストは vLLM も同梱可)
+- **Kubernetes**: 同じイメージを自前のマニフェストで (専用 chart は配布なし)
 
 K8s / Docker 配備はサブスクリプションライセンス推奨 (Pod 再スケジュール対応)。
 

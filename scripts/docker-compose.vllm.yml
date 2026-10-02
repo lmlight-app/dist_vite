@@ -1,0 +1,79 @@
+# DigitalBase — vLLM を同じ compose で上げる (NVIDIA GPU + NVIDIA Container Toolkit のホスト向け)
+#
+#   docker compose -f docker-compose.yml -f docker-compose.vllm.yml up -d
+#
+# docker-compose.yml に重ねて使う。アプリは LLM_BACKEND=vllm で container 内の vllm-chat / vllm-embed に繋がる。
+# モデルは初回起動時に Hugging Face から取得し、ホストの ~/.cache/huggingface に残る (= 作り直しても再取得しない)。
+# .env で変えられる値:
+#   VLLM_CHAT_MODEL (既定 Qwen/Qwen3-4B)   VLLM_EMBED_MODEL (既定 Qwen/Qwen3-Embedding-0.6B)
+#   LLM_CONTEXT_LENGTH (既定 32768)        VLLM_GPU_MEMORY_UTILIZATION_CHAT / _EMBED (既定 0.70 / 0.10 = 1 枚の GPU を分け合う)
+#   VLLM_IMAGE_TAG (既定 latest。本番は固定)  HF_TOKEN (gated モデルの時)  HF_HOME (キャッシュの場所)
+# tool calling (hermes) と reasoning (qwen3) の parser は Qwen3 向け。別系統のモデルにする時は command を合わせる。
+
+services:
+  vllm-chat:
+    image: vllm/vllm-openai:${VLLM_IMAGE_TAG:-latest}
+    restart: unless-stopped
+    command:
+      - --model=${VLLM_CHAT_MODEL:-Qwen/Qwen3-4B}
+      - --max-model-len=${LLM_CONTEXT_LENGTH:-32768}
+      - --gpu-memory-utilization=${VLLM_GPU_MEMORY_UTILIZATION_CHAT:-0.70}
+      - --enable-auto-tool-choice
+      - --tool-call-parser=hermes
+      - --reasoning-parser=qwen3
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+    volumes:
+      - ${HF_HOME:-${HOME}/.cache/huggingface}:/root/.cache/huggingface
+    ipc: host
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=3).status==200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 80
+      start_period: 120s   # 初回はモデル取得 + ロードに時間がかかる
+
+  vllm-embed:
+    image: vllm/vllm-openai:${VLLM_IMAGE_TAG:-latest}
+    restart: unless-stopped
+    command:
+      - --model=${VLLM_EMBED_MODEL:-Qwen/Qwen3-Embedding-0.6B}
+      - --task=embed
+      - --max-model-len=8192
+      - --gpu-memory-utilization=${VLLM_GPU_MEMORY_UTILIZATION_EMBED:-0.10}
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+    volumes:
+      - ${HF_HOME:-${HOME}/.cache/huggingface}:/root/.cache/huggingface
+    ipc: host
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=3).status==200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 80
+      start_period: 120s
+
+  app:
+    environment:
+      LLM_BACKEND: vllm
+      VLLM_BASE_URL: http://vllm-chat:8000
+      VLLM_EMBED_BASE_URL: http://vllm-embed:8000
+    depends_on:
+      vllm-chat:
+        condition: service_healthy
+      vllm-embed:
+        condition: service_healthy
