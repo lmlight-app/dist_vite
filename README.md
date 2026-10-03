@@ -24,7 +24,7 @@
 |---|---|---|
 | PostgreSQL + pgvector | DB / ベクトル検索（RAG） | pgvector 対応版。PostgreSQL 16 以降 |
 | Ollama | ローカル LLM（Bare Metal 既定） | 事前導入（Linux は `install-linux.sh --with-ollama` で installer が公式 script により導入可。未導入のまま実行すると `[WARN] Ollama is not installed` と導入コマンドを表示して続行し、Ollama 導入後にチャットが使える） |
-| NVIDIA GPU + CUDA | GPU / vLLM・SGLang 版のみ | vLLM / SGLang 本体は script が venv に導入（版は `latest.json` の `vllm_version` / `sglang_version` に固定） |
+| NVIDIA GPU + CUDA | GPU / vLLM・SGLang 版のみ | vLLM / SGLang 本体は script が venv に導入（版は指定が無ければ前回と同じ、初回は最新） |
 | Tesseract OCR | 画像・PDF の文字認識 | 日本語は言語データが必要（apt `tesseract-ocr-jpn` / brew `tesseract-lang` / Windows はインストール時に Japanese 選択） |
 | OS（Linux） | 配布バイナリの動作要件 | Ubuntu 24.04 以上（glibc 2.39）。コンテナもベースを 24.04 以上に |
 
@@ -85,14 +85,14 @@ sudo apt install -y postgresql-$(psql -V | grep -oE '[0-9]+' | head -1)-pgvector
 
 GPU が必要で、初回起動時に HuggingFace から model を download します。インストール先や運用コマンドは Bare Metal Ollama 版と同じ（`~/.local/db` / `db` コマンド）で、統一バイナリです。`.env` の `LLM_BACKEND=vllm` によって vLLM として動作します。SGLang 版は `install-linux-sglang.sh`（`LLM_BACKEND=sglang`）で、以下の説明は共通です。
 
-vLLM / SGLang / uv の版は `latest.json` の `vllm_version` / `sglang_version` / `uv_version`（任意で `torch_index`）に固定され、再実行すると既存 venv もその版へ upgrade / downgrade されます。`latest.json` にその key が無い場合は script 同梱の既定版（`engine-versions.env` と同値）を `[WARN]` 付きで使います。特定版を入れる場合は flag か env で上書きします:
+vLLM / SGLang の版は、指定が無ければこの機械で前回入れた版（venv に記録）を引き継ぎ、初回は最新版です。管理画面の「版を変更」で選んだ版も、本体の更新で保たれます。特定版を入れる場合は flag か env で指定します:
 
 ```bash
 curl -fsSL .../install-linux-vllm.sh | bash -s -- --vllm-version 0.27.1        # または DB_VLLM_VERSION=0.27.1
 curl -fsSL .../install-linux-sglang.sh | bash -s -- --sglang-version 0.5.18    # または DB_SGLANG_VERSION=0.5.18
 ```
 
-バイナリは公開 `.sha256` と照合し、不一致なら中断します（`.sha256` を取得できない場合は `[WARN] checksum unavailable` で続行）。旧バイナリは `~/.local/db/api.prev` に残るため、更新後に問題があれば `db rollback` で戻せます（6. アップデート参照）。
+バイナリは公開 `.sha256` と照合し、不一致なら中断します（`.sha256` を取得できない場合は `[WARN] checksum unavailable` で続行）。前の版へ戻す時は、版を指定して再実行します（6. アップデート参照）。
 
 #### オフラインインストール（閉域）
 
@@ -107,8 +107,8 @@ DIR に置くもの（同じ arch / CUDA のオンライン機で取得）:
 | ファイル | 内容 | 取得元 |
 |---|---|---|
 | `lmlight-vite-linux-<arch>` / `.sha256` | 本体バイナリと checksum | `https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-latest/` |
-| `latest.json` | 版マニフェスト | 同上（`--vllm-version` を渡す場合は省略可） |
-| `uv` | uv バイナリ（`uv_version` と同じ版） | https://github.com/astral-sh/uv/releases の `uv-<arch>-unknown-linux-gnu.tar.gz` を展開 |
+| `latest.json` | 版マニフェスト | 同上（任意。入れた本体の版を記録する） |
+| `uv` | uv バイナリ（`--uv-version` を指定する場合はその版） | https://github.com/astral-sh/uv/releases の `uv-<arch>-unknown-linux-gnu.tar.gz` を展開 |
 | `*.whl` | vLLM（または `sglang[all]`）と `faster-whisper` の wheel 一式 | `pip download "vllm==<version>" "faster-whisper>=1.1" nvidia-cublas-cu12 "nvidia-cudnn-cu12==9.*" --dest DIR`（必要なら `--extra-index-url <torch index>`） |
 | `hf-cache.tar`（任意） | 配信するモデルの HuggingFace キャッシュ | オンライン機の `~/.cache/huggingface` を tar |
 
@@ -308,7 +308,7 @@ schema 構成: `public`（主要 entity）/ `approval` / `helpdesk` / `vision` /
 | Linux / macOS / Win (vLLM / Ollama) | `db start` | `db stop` |
 | Docker | `docker compose up -d` | `docker compose down` |
 
-Linux (systemd) では `db restart` / `db status` / `db logs`、Linux / macOS では `db rollback`（直前のバイナリへ戻す）も使えます。
+Linux (systemd) では `db restart` / `db status` / `db logs` も使えます。
 
 ログは、Bare Metal では `db start` を実行した前景に出力されます。Docker では `docker compose logs -f app` で確認できます。
 
@@ -325,8 +325,9 @@ Linux (systemd) では `db restart` / `db status` / `db logs`、Linux / macOS �
 同じインストールコマンドを再実行します（データは保持され、`.env` は上書きされません）。Linux サーバ設置では管理画面（ライセンス / アップデート）の「アップデートを実行」でも同じ installer が走ります。
 
 - 手順ログ: `~/.local/db/update.log`（UTC 時刻付き）。管理画面は `GET /api/admin/update/status` で進行中か・結果・ログ末尾・再起動後の自己診断（`/api/ready` の migration 失敗など）を表示します。
-- 差し戻し: 更新前のバイナリは `~/.local/db/api.prev` に残ります。新版で問題が出たら `db rollback`（停止 → `api` と `api.prev` を入れ替え → 再開。もう一度実行すると元に戻ります）。
-- 版固定: vLLM / SGLang / uv は `latest.json` の版に固定され、再実行で venv もその版に揃います（詳細は「Linux (vLLM)」）。
+- 途中で失敗した時: 同じコマンドをもう一度実行します（バイナリも venv も作り直します）。
+- 前の版へ戻す: `--version <版>`（環境変数 `DB_VERSION`）で版を指定して再実行します。古い版も入りますが、新しい版で作られたデータは読めないことがあります。
+- 推論エンジンの版: 指定が無ければ前回と同じ版で venv を作り直します（詳細は「Linux (vLLM)」）。
 
 Docker の場合は `docker pull lmlight/digitalbase:latest` を実行してから install を再実行します（container は作り直されますが、data は volume に保持されます）。
 
@@ -427,7 +428,6 @@ apt install -y build-essential python3-dev ffmpeg ninja-build
 ```
 ~/.local/db/                  # Bare Metal の data 実体 (Docker は compose を置いた dir の data/)
 ├── api                       # binary (= API + frontend 同梱、Bare Metal のみ)
-├── api.prev                  # 更新前の binary (db rollback で入れ替え)
 ├── update.log                # 更新手順ログ (UTC)
 ├── .env                      # 設定
 ├── license.lic               # ライセンス
