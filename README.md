@@ -24,7 +24,7 @@
 |---|---|---|
 | PostgreSQL + pgvector | DB / ベクトル検索（RAG） | pgvector 対応版。PostgreSQL 16 以降 |
 | Ollama | ローカル LLM（Bare Metal 既定） | 事前導入（Linux は `install-linux.sh --with-ollama` で installer が公式 script により導入可。未導入のまま実行すると `[WARN] Ollama is not installed` と導入コマンドを表示して続行し、Ollama 導入後にチャットが使える） |
-| NVIDIA GPU + CUDA | GPU / vLLM・SGLang 版のみ | vLLM / SGLang 本体は script が venv に導入（版は指定が無ければ前回と同じ、初回は最新） |
+| GPU（NVIDIA CUDA 12 / 13・AMD ROCm・Intel XPU） | GPU / vLLM・SGLang 版のみ | vLLM / SGLang 本体は script が venv に導入（版は指定が無ければ前回と同じ、初回は最新）。AMD / Intel は vLLM 版のみ |
 | Tesseract OCR | 画像・PDF の文字認識 | 日本語は言語データが必要（apt `tesseract-ocr-jpn` / brew `tesseract-lang` / Windows はインストール時に Japanese 選択） |
 | OS（Linux） | 配布バイナリの動作要件 | Ubuntu 24.04 以上（glibc 2.39）。コンテナもベースを 24.04 以上に |
 
@@ -92,6 +92,20 @@ curl -fsSL .../install-linux-vllm.sh | bash -s -- --vllm-version 0.27.1        #
 curl -fsSL .../install-linux-sglang.sh | bash -s -- --sglang-version 0.5.18    # または DB_SGLANG_VERSION=0.5.18
 ```
 
+GPU の種類は自動で判別します（NVIDIA → AMD → Intel の順。前回入れた種類は venv に記録して引き継ぎ）。違う時は `--platform`（env `DB_PLATFORM`）で指定します。入れ方は vLLM 公式の GPU 別の手順と同じです:
+
+| `--platform` | GPU | vLLM の入手先 | 前提 |
+|---|---|---|---|
+| `cuda` | NVIDIA | PyPI の `vllm`。torch は uv が driver の CUDA 版（12 / 13）から選ぶ（`--torch-index` で固定可） | NVIDIA driver |
+| `rocm` | AMD（Instinct MI200 / MI300 / MI350、Radeon RX 7900 / 9000、Ryzen AI MAX など） | `https://wheels.vllm.ai/rocm/`（版指定は `rocm/<版>/rocm<ROCm 版>`） | amdgpu driver + ROCm、glibc 2.39 以上 |
+| `xpu` | Intel（Data Center GPU Max / Arc） | `https://wheels.vllm.ai/<版>/xpu` + PyTorch の XPU index | Intel GPU driver（compute runtime / Level Zero） |
+
+```bash
+curl -fsSL .../install-linux-vllm.sh | bash -s -- --platform rocm               # または DB_PLATFORM=rocm
+```
+
+AMD / Intel では、サービスを動かすユーザーが `render`・`video` group に入っている必要があります（`sudo usermod -aG render,video $USER` → 再ログイン）。
+
 バイナリは公開 `.sha256` と照合し、不一致なら中断します（`.sha256` を取得できない場合は `[WARN] checksum unavailable` で続行）。前の版へ戻す時は、版を指定して再実行します（6. アップデート参照）。
 
 #### オフラインインストール（閉域）
@@ -102,14 +116,14 @@ vLLM / SGLang 版は `--offline --wheelhouse DIR` で、ネットワークを使
 bash install-linux-vllm.sh --offline --wheelhouse /media/usb/db-offline
 ```
 
-DIR に置くもの（同じ arch / CUDA のオンライン機で取得）:
+DIR に置くもの（同じ arch / GPU の種類のオンライン機で取得）:
 
 | ファイル | 内容 | 取得元 |
 |---|---|---|
 | `lmlight-vite-linux-<arch>` / `.sha256` | 本体バイナリと checksum | `https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-latest/` |
 | `latest.json` | 版マニフェスト | 同上（任意。入れた本体の版を記録する） |
 | `uv` | uv バイナリ（`--uv-version` を指定する場合はその版） | https://github.com/astral-sh/uv/releases の `uv-<arch>-unknown-linux-gnu.tar.gz` を展開 |
-| `*.whl` | vLLM（または `sglang[all]`）と `faster-whisper` の wheel 一式 | `pip download "vllm==<version>" "faster-whisper>=1.1" nvidia-cublas-cu12 "nvidia-cudnn-cu12==9.*" --dest DIR`（必要なら `--extra-index-url <torch index>`） |
+| `*.whl` | vLLM（または `sglang[all]`）と `faster-whisper` の wheel 一式 | `pip download "vllm==<version>" "faster-whisper>=1.1" nvidia-cublas-cu12 "nvidia-cudnn-cu12==9.*" --dest DIR`（必要なら `--extra-index-url <torch index>`。AMD / Intel は上の表の入手先を `--extra-index-url` に足す） |
 | `hf-cache.tar`（任意） | 配信するモデルの HuggingFace キャッシュ | オンライン機の `~/.cache/huggingface` を tar |
 
 加えて、対象機には `python3.13`（`DB_PYTHON_VER` で変更可）が必要です（uv はオフラインでは interpreter を取得できません）。不足があると installer が必要一覧を表示して停止します。
@@ -168,6 +182,13 @@ curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/dock
 docker compose -f docker-compose.yml -f docker-compose.vllm.yml up -d
 ```
 
+AMD GPU は `docker-compose.vllm-rocm.yml`（image `vllm/vllm-openai-rocm`、ホストに amdgpu driver）、Intel GPU は `docker-compose.vllm-xpu.yml`（image `vllm/vllm-openai-xpu`、ホストに Intel GPU driver）をさらに重ねます。Container Toolkit は不要です:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.vllm.yml -f docker-compose.vllm-rocm.yml up -d   # AMD
+docker compose -f docker-compose.yml -f docker-compose.vllm.yml -f docker-compose.vllm-xpu.yml up -d    # Intel
+```
+
 モデルは初回起動時に Hugging Face から取得し、ホストの `~/.cache/huggingface` に残ります。`.env` の `VLLM_CHAT_MODEL`（既定 `Qwen/Qwen3-4B`）/ `VLLM_EMBED_MODEL`（既定 `Qwen/Qwen3-Embedding-0.6B`）/ `LLM_CONTEXT_LENGTH` / `VLLM_GPU_MEMORY_UTILIZATION_CHAT`・`_EMBED` / `VLLM_IMAGE_TAG` / `HF_TOKEN` で調整します。
 
 #### install-docker.sh（`curl | bash` で済ませたい場合）
@@ -176,7 +197,8 @@ docker compose -f docker-compose.yml -f docker-compose.vllm.yml up -d
 
 ```bash
 curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-docker.sh | bash
-curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-docker.sh | GPU=1 bash          # vLLM 同梱
+curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-docker.sh | GPU=1 bash          # vLLM 同梱（NVIDIA）
+curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-docker.sh | GPU=rocm bash       # vLLM 同梱（AMD。Intel は GPU=xpu）
 curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-docker.sh | APP_PORT=8080 bash  # 初回の .env に書く
 ```
 
