@@ -92,7 +92,7 @@ curl -fsSL .../install-linux-vllm.sh | bash -s -- --vllm-version 0.27.1        #
 curl -fsSL .../install-linux-sglang.sh | bash -s -- --sglang-version 0.5.18    # または DB_SGLANG_VERSION=0.5.18
 ```
 
-GPU の種類は自動で判別します（NVIDIA → AMD → Intel の順。前回入れた種類は venv に記録して引き継ぎ）。違う時は `--platform`（env `DB_PLATFORM`）で指定します。入れ方は vLLM 公式の GPU 別の手順と同じです:
+既定は NVIDIA（CUDA）です。AMD / Intel の GPU では `--platform`（env `DB_PLATFORM`）を指定します（指定した種類は venv に記録し、次回以降の更新で引き継ぎます）。入れ方は vLLM 公式の GPU 別の手順と同じです:
 
 | `--platform` | GPU | vLLM の入手先 | 前提 |
 |---|---|---|---|
