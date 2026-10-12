@@ -221,7 +221,7 @@ graph LR
 
 ### パターン2: Docker Compose
 
-配布する `docker-compose.yml` 1 ファイルで PostgreSQL (pgvector) とアプリを起動 (イメージは `lmlight/digitalbase`、`linux/amd64` + `linux/arm64`)。LLM は既定でホスト側の Ollama / vLLM に繋ぎ、GPU ホストでは `docker-compose.vllm.yml` を重ねて vLLM も同梱できる。既存の PostgreSQL / LLM は `.env` の URL で差し替え。
+配布する `docker-compose.yml` 1 ファイルで PostgreSQL (pgvector) とアプリを起動 (イメージは `lmlight/digitalbase`、`linux/amd64` + `linux/arm64`)。LLM は既定でホスト側の Ollama / vLLM に繋ぎ、GPU ホストでは `.env` の `COMPOSE_PROFILES`（cuda / rocm / xpu、`install-docker.sh --platform` が書く）で vLLM も同じ compose で起動できる。既存の PostgreSQL / LLM は `.env` の URL で差し替え。
 
 ### パターン3: 分散配置
 

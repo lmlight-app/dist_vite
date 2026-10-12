@@ -96,13 +96,15 @@ curl -fsSL .../install-linux-sglang.sh | bash -s -- --sglang-version 0.5.18    #
 
 | `--platform` | GPU | vLLM の入手先 | 前提 |
 |---|---|---|---|
-| `cuda` | NVIDIA | PyPI の `vllm`。torch は uv が driver の CUDA 版（12 / 13）から選ぶ（`--torch-index` で固定可） | NVIDIA driver |
+| `cuda` | NVIDIA | PyPI の `vllm`。torch は uv が driver の CUDA 版（12 / 13）から選ぶ（`--torch-index https://download.pytorch.org/whl/cu129` のように固定可、`--torch-index auto` で戻す） | NVIDIA driver |
 | `rocm` | AMD（Instinct MI200 / MI300 / MI350、Radeon RX 7900 / 9000、Ryzen AI MAX など） | `https://wheels.vllm.ai/rocm/`（版指定は `rocm/<版>/rocm<ROCm 版>`） | amdgpu driver + ROCm、glibc 2.39 以上 |
 | `xpu` | Intel（Data Center GPU Max / Arc） | `https://wheels.vllm.ai/<版>/xpu` + PyTorch の XPU index | Intel GPU driver（compute runtime / Level Zero） |
 
 ```bash
 curl -fsSL .../install-linux-vllm.sh | bash -s -- --platform rocm               # または DB_PLATFORM=rocm
 ```
+
+`--platform` と `--torch-index`、`--vllm-version` で選んだ値は venv に記録し、管理画面からの更新でも引き継ぎます。
 
 AMD / Intel では、サービスを動かすユーザーが `render`・`video` group に入っている必要があります（`sudo usermod -aG render,video $USER` → 再ログイン）。
 
@@ -152,55 +154,30 @@ digitalbase serve
 
 ## Docker
 
-単一イメージ `lmlight/digitalbase` を Docker Hub で配布しています。vLLM 版・Ollama 版は共通のイメージで、`.env` の `LLM_BACKEND` で切り替わります。PostgreSQL（pgvector）と LLM（vLLM / Ollama）はイメージに含まれません。配備の正本は `docker-compose.yml` で、`install-docker.sh` はそれを置いて起動するだけの wrapper です。要 Docker Compose v2.24 以降。
-
-#### docker compose（標準）
-
-PostgreSQL（pgvector）とアプリを 1 つの compose ファイルで起こします。
-
-```bash
-mkdir digitalbase && cd digitalbase
-curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/docker-compose.yml -o docker-compose.yml
-docker compose up -d
-# → http://localhost:8000  (admin@local / admin123)
-```
-
-- 設定は同じディレクトリの `.env`（無くても動きます）。雛形は `docker.env.example`（`curl -fsSL .../vite-scripts/docker.env.example -o .env`）。`APP_PORT` / `LLM_BACKEND=ollama|vllm` / `DB_IMAGE_TAG` / `DB_PASSWORD` のほか、`OPENAI_API_KEY` や `AUTH_MODE` など `.env` の全行がそのままアプリに渡ります。
-- 既定はホスト側の Ollama（`host.docker.internal:11434`）／vLLM（8080 / 8081）に繋ぎます。
-- 既存の PostgreSQL / LLM を使う場合は `.env` に `DATABASE_URL` / `OLLAMA_BASE_URL` / `VLLM_BASE_URL` / `VLLM_EMBED_BASE_URL` を書きます（`db` サービスは消して構いません）。DB 側の準備は「手動でのデータベース作成」を参照。
-- データは `data/`（ファイル・`license.lic`・自動生成する鍵）と `postgres-data/`（DB）。バックアップはこのディレクトリごと。
-- ライセンスは `data/license.lic` に置くか、起動後に 管理画面 > ライセンス から upload。
-- 更新は `docker compose pull && docker compose up -d`、停止は `docker compose down`（データは残ります）、削除は `docker compose down && sudo rm -rf data postgres-data`（コンテナは root で動くため、`data/` の中身は root 所有になります）。
-- 本番は `DB_IMAGE_TAG=x2026MMDD` で版を固定してください（`latest` は更新のたびに動きます）。
-
-#### GPU で vLLM も同梱する
-
-NVIDIA GPU + NVIDIA Container Toolkit のホストでは、vLLM（chat / embed）も同じ compose で起こせます。
-
-```bash
-curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/docker-compose.vllm.yml -o docker-compose.vllm.yml
-docker compose -f docker-compose.yml -f docker-compose.vllm.yml up -d
-```
-
-AMD GPU は `docker-compose.vllm-rocm.yml`（image `vllm/vllm-openai-rocm`、ホストに amdgpu driver）、Intel GPU は `docker-compose.vllm-xpu.yml`（image `vllm/vllm-openai-xpu`、ホストに Intel GPU driver）をさらに重ねます。Container Toolkit は不要です:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.vllm.yml -f docker-compose.vllm-rocm.yml up -d   # AMD
-docker compose -f docker-compose.yml -f docker-compose.vllm.yml -f docker-compose.vllm-xpu.yml up -d    # Intel
-```
-
-モデルは初回起動時に Hugging Face から取得し、ホストの `~/.cache/huggingface` に残ります。`.env` の `VLLM_CHAT_MODEL`（既定 `Qwen/Qwen3-4B`）/ `VLLM_EMBED_MODEL`（既定 `Qwen/Qwen3-Embedding-0.6B`）/ `LLM_CONTEXT_LENGTH` / `VLLM_GPU_MEMORY_UTILIZATION_CHAT`・`_EMBED` / `VLLM_IMAGE_TAG` / `HF_TOKEN` で調整します。
-
-#### install-docker.sh（`curl | bash` で済ませたい場合）
-
-上記と同じことを自動で行います。Docker と compose の確認 → compose ファイルを `~/digitalbase`（`DB_INSTALL_DIR` で変更可）に置く → `.env` が無ければ雛形から作る → `pull` → `up -d`。再実行すると更新になります（compose ファイルは最新に差し替え、`.env` とデータは保持）。
+単一イメージ `lmlight/digitalbase`（amd64 / arm64）を Docker Hub で配布しています。vLLM 版・Ollama 版は共通のイメージで、`.env` の `LLM_BACKEND` で切り替わります。配備は `docker-compose.yml` 1 本（PostgreSQL（pgvector）+ アプリ、GPU のホストでは vLLM も）で、`install-docker.sh` がそれを置いて `.env` を整え、起動します。要 Docker Compose v2.24 以降。
 
 ```bash
 curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-docker.sh | bash
-curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-docker.sh | GPU=1 bash          # vLLM 同梱（NVIDIA）
-curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-docker.sh | GPU=rocm bash       # vLLM 同梱（AMD。Intel は GPU=xpu）
-curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-docker.sh | APP_PORT=8080 bash  # 初回の .env に書く
+# → http://localhost:8000  (admin@local / admin123)
+curl -fsSL .../install-docker.sh | bash -s -- --platform cuda       # vLLM も同じ stack で（NVIDIA。AMD は rocm、Intel は xpu）
+curl -fsSL .../install-docker.sh | bash -s -- --version 26.1005.2   # 版を固定（latest で固定を外す）
+curl -fsSL .../install-docker.sh | bash -s -- --port 8080
 ```
+
+| オプション | 内容 | 既定 |
+|---|---|---|
+| `--platform none\|cuda\|rocm\|xpu`（env `DB_PLATFORM`） | vLLM（chat / embed）を同じ stack で動かす GPU の種類。Linux 版の `--platform` と同じ語彙 | `.env` の記録、無ければ none |
+| `--version`（env `DB_VERSION`） | 本体の版（`latest` / `YY.MMDD[.N]` / `xYYYYMMDD[.N]`）。`.env` の `DB_IMAGE_TAG` に書く | `.env` の記録、無ければ latest |
+| `--port`（env `APP_PORT`） | ホスト側のポート | `.env` の記録、無ければ 8000 |
+
+- 設置先は `~/digitalbase`（`DB_INSTALL_DIR` で変更可）。再実行すると更新です（compose ファイルを最新にして pull → up。`.env` とデータは保持）。オプションを付けずに再実行すると、前回の選択のまま更新します。
+- 設定は同じディレクトリの `.env`（初回に `docker.env.example` から作り、同梱 PostgreSQL のパスワードを乱数で入れます）。`OPENAI_API_KEY` や `AUTH_MODE` など `.env` の全行がアプリに渡ります。
+- `--platform` は `.env` の `COMPOSE_PROFILES` に記録されるので、そのディレクトリでは `docker compose up -d` / `down` / `logs` をそのまま使えます（`-f` は不要）。GPU の種類を変えると、使わなくなった vLLM のコンテナは片付けます。
+- vLLM はアプリと別のコンテナで、モデルの取得・読み込み中もアプリは使えます（状態は 管理画面 > モデル）。モデルは `hf-cache/` に残ります。調整は `.env` の `VLLM_CHAT_MODEL`（既定 `Qwen/Qwen3-1.7B`）/ `VLLM_EMBED_MODEL`（既定 `Qwen/Qwen3-Embedding-0.6B`）/ `VLLM_TOOL_CALL_PARSER`・`VLLM_REASONING_PARSER`（モデルの系統に合わせる）/ `LLM_CONTEXT_LENGTH` / `VLLM_GPU_MEMORY_UTILIZATION_CHAT`・`_EMBED` / `HF_TOKEN`。
+- ホストの前提: NVIDIA は Container Toolkit、AMD は amdgpu driver（`/dev/kfd`）、Intel は GPU driver（`/dev/dri`）。ROCm / XPU のイメージは x86_64 のみです。
+- 同梱しない場合はホストの Ollama（`host.docker.internal:11434`）に繋ぎます。外の PostgreSQL / LLM を使う時は `.env` に `DATABASE_URL` / `OLLAMA_BASE_URL` / `VLLM_BASE_URL` / `VLLM_EMBED_BASE_URL` を書きます（DB 側の準備は下の「手動でのデータベース作成」）。
+- データは `data/`（ファイル・`license.lic`・自動生成する鍵）、`postgres-data/`（DB）、`hf-cache/`（vLLM のモデル）。バックアップはこのディレクトリごと。ライセンスは `data/license.lic` に置くか、起動後に 管理画面 > ライセンス から upload。
+- 停止は `docker compose down`（データは残ります）。削除は `docker compose down` の後にディレクトリを消します（コンテナは root で動くため、`data/` の中身は root 所有です）。
 
 #### 手動でのデータベース作成（既存の PostgreSQL を使う場合）
 
