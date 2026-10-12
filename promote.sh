@@ -20,15 +20,6 @@ ASSETS=(
   "lmlight-vite-windows-amd64.exe.sha256"
 #   "ai-server-installer-windows.exe"
 #   "ai-server-installer-windows.exe.sha256"
-  # deb/rpm パッケージ (pkg-publish.yml が pkg* タグで生成・古い release には無い)
-  "digitalbase-amd64.deb"
-  "digitalbase-amd64.deb.sha256"
-  "digitalbase-arm64.deb"
-  "digitalbase-arm64.deb.sha256"
-  "digitalbase-amd64.rpm"
-  "digitalbase-amd64.rpm.sha256"
-  "digitalbase-arm64.rpm"
-  "digitalbase-arm64.rpm.sha256"
   # vLLM edition — 統一binary化により廃止 (install-linux-vllm.sh は lmlight-vite-linux-* + LLM_BACKEND=vllm を使用)
   # "lmlight-vite-vllm-linux-amd64"
   # "lmlight-vite-vllm-linux-amd64.sha256"
@@ -53,6 +44,15 @@ for asset in "${ASSETS[@]}"; do
     && echo "  ✓ $asset" \
     || echo "  - $asset (not found, skipping)"
 done
+
+# deb/rpm は release の Linux 本体からここで作る (CI の runner は使わない。nfpm か Docker が要る)
+PKG_DIR="${DB_PKG_DIR:-$(cd "$(dirname "$0")/../digitalbase/pkg" 2>/dev/null && pwd || true)}"
+echo "Building deb/rpm..."
+if [ -n "$PKG_DIR" ] && [ -x "$PKG_DIR/build-packages.sh" ]; then
+  "$PKG_DIR/build-packages.sh" "$TMPDIR" "$TAG" || echo "  - deb/rpm (failed, skipping)"
+else
+  echo "  - deb/rpm (digitalbase/pkg not found; set DB_PKG_DIR, skipping)"
+fi
 
 # pgvector (Windows) zip は本線 release (x*) とは独立した固定タグ release
 # 'pgvector-latest' に置かれる (release-pgvector-windows.yml が rolling 上書き)。

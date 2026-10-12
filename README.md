@@ -197,7 +197,7 @@ curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/db_s
 - 設定: 環境変数（`.env` と同じ名前）。`DATABASE_URL` と鍵類は Secret、それ以外は ConfigMap
 - `/app/data`: PVC（ファイル・`license.lic`・自動生成する鍵の置き場。1 Pod で ReadWriteOnce）
 - PostgreSQL（pgvector）と vLLM / Ollama は別 Pod またはクラスタ外のサービス。URL を `DATABASE_URL` / `VLLM_BASE_URL` 等で渡す
-- ライセンスは subscription を使い、Secret を `/app/data/license.lic` に mount するか、起動後に管理画面から upload
+- ライセンスは subscription を使い、Secret を `/app/data/license.lic` に mount するか、起動後に管理画面から upload（買い切りのライセンスは機に結び付くので、Pod が別のノードに移ると通らなくなります）
 
 ---
 
