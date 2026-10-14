@@ -167,7 +167,7 @@ curl -fsSL .../install-docker.sh | bash -s -- --port 8080
 | オプション | 内容 | 既定 |
 |---|---|---|
 | `--platform none\|cuda\|rocm\|xpu`（env `DB_PLATFORM`） | vLLM（chat / embed）を同じ stack で動かす GPU の種類。Linux 版の `--platform` と同じ語彙 | `.env` の記録、無ければ none |
-| `--version`（env `DB_VERSION`） | 本体の版（`latest` / `YY.MMDD[.N]` / `xYYYYMMDD[.N]`）。`.env` の `DB_IMAGE_TAG` に書く | `.env` の記録、無ければ latest |
+| `--version`（env `DB_VERSION`） | 本体のバージョン（`latest` / `26.10.124` / イメージのタグ `20261012.4`）。`.env` の `DB_IMAGE_TAG` に書く | `.env` の記録、無ければ latest |
 | `--port`（env `APP_PORT`） | ホスト側のポート | `.env` の記録、無ければ 8000 |
 
 - 設置先は `~/digitalbase`（`DB_INSTALL_DIR` で変更可）。再実行すると更新です（compose ファイルを最新にして pull → up。`.env` とデータは保持）。オプションを付けずに再実行すると、前回の選択のまま更新します。

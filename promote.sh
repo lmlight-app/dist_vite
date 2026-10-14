@@ -64,10 +64,12 @@ gh release download "$PGVEC_TAG" --repo "$REPO" -p "pgvector-pg*-windows-x64.zip
   && echo "  ✓ pgvector ($PGVEC_TAG)" \
   || echo "  - pgvector assets (not found in $PGVEC_TAG, skipping)"
 
-# latest.json: app 内の「最新状況を確認」と installer が参照する版マニフェスト (タグ x20260812 → "26.0812")。
-# 推論エンジンの版は各機械で決める (= installer の --vllm-version / 管理画面の「版を変更」、無ければ latest)
-RAW="${TAG#x}"; RAW="${RAW%%-*}"
-VERSION="$(printf '%s' "$RAW" | sed -E 's/^20([0-9]{2})([0-9]{4})/\1.\2/')"
+# latest.json: app 内の「最新状況を確認」と installer が参照するバージョン (タグ x20261012.4 → "26.10.124"、
+# 年.月.(日×10 + その日の枝番)。digitalbase の api/scripts/release_version.sh と同じ規則)。
+# 推論エンジンのバージョンは各機械で決める (installer の --vllm-version / 管理画面の「バージョンを変更」、無ければ latest)
+RAW="${TAG#x}"; RAW="${RAW%%-*}"; DAY="${RAW%%.*}"; BUILD=0
+[ "$RAW" = "$DAY" ] || BUILD="${RAW#*.}"
+VERSION="${DAY:2:2}.$((10#${DAY:4:2})).$((10#${DAY:6:2} * 10 + 10#$BUILD))"
 printf '{"version":"%s","released_at":"%s"}\n' "$VERSION" "$(date -u +%Y-%m-%d)" > "$TMPDIR/latest.json"
 echo "  ✓ latest.json (version $VERSION)"
 
