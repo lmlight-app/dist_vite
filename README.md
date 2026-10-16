@@ -160,7 +160,7 @@ digitalbase serve
 curl -fsSL https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-docker.sh | bash
 # → http://localhost:8000  (admin@local / admin123)
 curl -fsSL .../install-docker.sh | bash -s -- --platform cuda       # vLLM も同じ stack で（NVIDIA。AMD は rocm、Intel は xpu）
-curl -fsSL .../install-docker.sh | bash -s -- --version 26.1005.2   # 版を固定（latest で固定を外す）
+curl -fsSL .../install-docker.sh | bash -s -- --version 26.10.52    # 版を固定（latest で固定を外す）
 curl -fsSL .../install-docker.sh | bash -s -- --port 8080
 ```
 

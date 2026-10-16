@@ -9,11 +9,20 @@ $ErrorActionPreference = "Stop"
 $BASE_URL = if ($env:DB_BASE_URL) { $env:DB_BASE_URL } else { "https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-latest" }
 $VERSION_BASE_URL="https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-"
 $DB_VERSION = if ($env:DB_VERSION) { $env:DB_VERSION } else { "latest" }
-if ($DB_VERSION -notmatch '^(latest|\d{2}\.\d{4}(\.\d+)?|x\d{8}(\.\d+)?(-[a-z0-9]+)?)$') {
-    throw "DB_VERSION must be latest, a version (YY.MMDD[.N]), or a release tag (xYYYYMMDD[.N][-windows])"
+if ($DB_VERSION -notmatch '^(latest|\d{2}\.\d{1,2}\.\d{1,3}|x\d{8}(\.\d+)?(-[a-z0-9]+)?|\d{2}\.\d{4}(\.\d+)?)$') {
+    throw "DB_VERSION must be latest, a version (26.10.124), or a release tag (x20261012.4)"
+}
+function Get-ReleaseTag([string]$Version) {
+    if ($Version -like "x*") { return $Version }
+    $p = $Version.Split('.') | ForEach-Object { [int]$_ }
+    if ($p[1] -le 12) { $m = $p[1]; $d = [math]::Floor($p[2] / 10); $b = $p[2] % 10 }
+    else { $m = [math]::Floor($p[1] / 100); $d = $p[1] % 100; $b = $(if ($p.Count -gt 2) { $p[2] } else { 0 }) }
+    $tag = "x20{0:D2}{1:D2}{2:D2}" -f $p[0], [int]$m, [int]$d
+    if ($b) { $tag += ".$b" }
+    return $tag
 }
 if ($DB_VERSION -ne "latest" -and -not $env:DB_BASE_URL) {
-    $releaseRef = $DB_VERSION
+    $releaseRef = Get-ReleaseTag $DB_VERSION
     $BASE_URL = "$VERSION_BASE_URL$releaseRef"
 }
 $INSTALL_DIR = if ($env:DB_INSTALL_DIR) { $env:DB_INSTALL_DIR } else { "$env:LOCALAPPDATA\db" }
