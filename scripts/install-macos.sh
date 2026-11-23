@@ -101,14 +101,17 @@ DB_USER="${DB_USER:-digitalbase}"
 DB_PASS="${DB_PASS:-digitalbase}"
 DB_NAME="${DB_NAME:-digitalbase}"
 
-[ ! -f "$INSTALL_DIR/.env" ] && cat > "$INSTALL_DIR/.env" << EOF
+# .env はこの機の識別 (推論エンジン・DB・署名鍵) だけ。置き場所は既定 (~/.local/db) と違う時だけ書く
+if [ ! -f "$INSTALL_DIR/.env" ]; then
+    cat > "$INSTALL_DIR/.env" << EOF
 LLM_BACKEND=none
 DATABASE_URL=postgresql://${DB_USER}:${DB_PASS}@localhost:5432/${DB_NAME}
 JWT_SECRET=$(openssl rand -hex 32)
-LLM_CONTEXT_LENGTH=16384
-LICENSE_FILE_PATH=$INSTALL_DIR/license.lic
-FILES_DIR=$INSTALL_DIR/files
 EOF
+    if [ "$(cd "$INSTALL_DIR" && pwd -P)" != "$(cd "$HOME/.local" 2>/dev/null && pwd -P)/db" ]; then
+        printf 'LICENSE_FILE_PATH=%s\nFILES_DIR=%s\n' "$INSTALL_DIR/license.lic" "$INSTALL_DIR/files" >> "$INSTALL_DIR/.env"
+    fi
+fi
 
 # Database setup
 if [ -f "$INSTALL_DIR/.env" ]; then

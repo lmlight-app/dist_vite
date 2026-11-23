@@ -47,10 +47,13 @@ foreach ($dep in $MISSING_DEPS) {
             # 黙って入れると postgres のパスワードが分からなくなるので、ここで決めて渡す (終わりに表示する)
             $PG_SUPER_PASSWORD = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 20 | ForEach-Object { [char]$_ })
             $wingetOut = winget install -e --id "PostgreSQL.PostgreSQL.$PG_MAJOR" --silent --accept-package-agreements --accept-source-agreements --custom "--superpassword $PG_SUPER_PASSWORD --enable-components server,commandlinetools --disable-components pgAdmin,stackbuilder" 2>&1
-            if ($LASTEXITCODE -ne 0) {
-                Write-Error "PostgreSQL $PG_MAJOR の導入に失敗しました (winget exit=$LASTEXITCODE)。`n$(($wingetOut | Select-Object -Last 5) -join "`n")"
-            }
+            $wingetExit = $LASTEXITCODE
             Add-PgBinToPath
+            if (-not (Get-Command psql -ErrorAction SilentlyContinue)) {
+                # -1978335189 = winget は「入っている」と言うが実体が無い (消し残りの登録など)
+                Write-Error "PostgreSQL $PG_MAJOR の導入に失敗しました (winget exit=$wingetExit)。`n$(($wingetOut | Select-Object -Last 5) -join "`n")`nアプリと機能に PostgreSQL が残っていれば消してから、もう一度実行してください"
+            }
+            if ($wingetExit -ne 0) { $PG_SUPER_PASSWORD = $null }
             Write-Success "PostgreSQL $PG_MAJOR を導入しました"
         }
         "tesseract" {
