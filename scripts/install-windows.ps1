@@ -90,12 +90,6 @@ if (Get-Command psql -ErrorAction SilentlyContinue) {
     $MISSING_DEPS += "postgresql"
 }
 
-if (Get-Command ollama -ErrorAction SilentlyContinue) {
-    Write-Success "Ollama が見つかりました"
-} else {
-    Write-Warn "Ollama が見つかりません"
-    $MISSING_DEPS += "ollama"
-}
 
 if ((Get-Command tesseract -ErrorAction SilentlyContinue) -or (Test-Path "C:\Program Files\Tesseract-OCR\tesseract.exe")) {
     Write-Success "Tesseract OCR が見つかりました (画像OCR用)"
@@ -104,7 +98,7 @@ if ((Get-Command tesseract -ErrorAction SilentlyContinue) -or (Test-Path "C:\Pro
     $MISSING_DEPS += "tesseract"
 }
 
-if ($MISSING_DEPS -contains "postgresql" -or $MISSING_DEPS -contains "ollama") {
+if ($MISSING_DEPS -contains "postgresql") {
     Write-Error "前提ソフトが未導入です ($($MISSING_DEPS -join ', '))。`n先に管理者 PowerShell で環境設定を実行してください:`n  irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/setup-windows.ps1 | iex"
 }
 if ($MISSING_DEPS -contains "tesseract") {
@@ -297,9 +291,16 @@ END `$`$;
 
 # ============================================================
 # ============================================================
-Write-Info "ステップ 4/5: Ollama をセットアップ中..."
+Write-Info "ステップ 4/5: 推論エンジンを確認中..."
 
-if (Get-Command ollama -ErrorAction SilentlyContinue) {
+$currentBackend = "none"
+if (Test-Path "$INSTALL_DIR\.env") {
+    $backendLine = Get-Content "$INSTALL_DIR\.env" | Where-Object { $_ -match '^LLM_BACKEND=' } | Select-Object -First 1
+    if ($backendLine) { $currentBackend = ($backendLine -replace '^LLM_BACKEND=', '').Trim() }
+}
+if ($currentBackend -eq "none") {
+    Write-Info "推論エンジンなしで入れます。ローカル AI は管理画面の推論エンジンから Ollama を入れて使えます"
+} elseif ($currentBackend -eq "ollama" -and (Get-Command ollama -ErrorAction SilentlyContinue)) {
     $ctxLen = "16384"  # default
     if (Test-Path "$INSTALL_DIR\.env") {
         $line = Get-Content "$INSTALL_DIR\.env" | Where-Object { $_ -match '^(LLM|OLLAMA)_CONTEXT_LENGTH=' } | Sort-Object { $_ -notmatch '^LLM_' } | Select-Object -First 1
@@ -326,11 +327,10 @@ Write-Info "ステップ 5/5: 設定を作成中..."
 if (-not (Test-Path "$INSTALL_DIR\.env")) {
     $JWT_SECRET = -join ((48..57) + (97..122) | Get-Random -Count 64 | ForEach-Object { [char]$_ })
     $ENV_CONTENT = @"
-LLM_BACKEND=ollama
+LLM_BACKEND=none
 DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@127.0.0.1:${DB_PORT}/${DB_NAME}
 JWT_SECRET=$JWT_SECRET
 LLM_CONTEXT_LENGTH=16384
-OLLAMA_AUTO_START=true
 LICENSE_FILE_PATH=$INSTALL_DIR\license.lic
 FILES_DIR=$INSTALL_DIR\files
 "@
@@ -378,7 +378,7 @@ if ($pgService -and $pgService.Status -ne "Running") {
     Start-Sleep -Seconds 2
 }
 
-if (-not (Get-Process -Name "ollama" -ErrorAction SilentlyContinue)) {
+if ($env:LLM_BACKEND -eq "ollama" -and (Get-Command ollama -ErrorAction SilentlyContinue) -and -not (Get-Process -Name "ollama" -ErrorAction SilentlyContinue)) {
     Write-Host "Ollama を起動中..."
     Start-Process -FilePath "ollama" -ArgumentList "serve" -WindowStyle Hidden
     Start-Sleep -Seconds 3
@@ -507,8 +507,9 @@ if "%1"=="start" powershell -ExecutionPolicy Bypass -File "%LOCALAPPDATA%\db\sta
 if "%1"=="stop" powershell -ExecutionPolicy Bypass -File "%LOCALAPPDATA%\db\stop.ps1"
 if "%1"=="worker"  (pushd "%LOCALAPPDATA%\db" && api.exe %* & popd)
 if "%1"=="config"  (pushd "%LOCALAPPDATA%\db" && api.exe %* & popd)
+if "%1"=="engine"  (pushd "%LOCALAPPDATA%\db" && api.exe %* & popd)
 if "%1"=="version" (pushd "%LOCALAPPDATA%\db" && api.exe --version & popd)
-if "%1"=="" echo Usage: db {start^|stop^|worker [--pool NAME]^|config list^|version}
+if "%1"=="" echo Usage: db {start^|stop^|worker [--pool NAME]^|config list^|engine {install^|remove^|status}^|version}
 "@
 Set-Content -Path "$INSTALL_DIR\db.bat" -Value $BAT_CONTENT -Encoding ASCII
 

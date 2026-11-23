@@ -102,11 +102,10 @@ DB_PASS="${DB_PASS:-digitalbase}"
 DB_NAME="${DB_NAME:-digitalbase}"
 
 [ ! -f "$INSTALL_DIR/.env" ] && cat > "$INSTALL_DIR/.env" << EOF
-LLM_BACKEND=ollama
+LLM_BACKEND=none
 DATABASE_URL=postgresql://${DB_USER}:${DB_PASS}@localhost:5432/${DB_NAME}
 JWT_SECRET=$(openssl rand -hex 32)
 LLM_CONTEXT_LENGTH=16384
-OLLAMA_AUTO_START=true
 LICENSE_FILE_PATH=$INSTALL_DIR/license.lic
 FILES_DIR=$INSTALL_DIR/files
 EOF
@@ -163,7 +162,9 @@ set -a; [ -f .env ] && source .env; set +a
 
 # Check dependencies
 pg_isready -q 2>/dev/null || { echo "[ERROR] PostgreSQL not running"; exit 1; }
-pgrep -x ollama >/dev/null || { ollama serve &>/dev/null & sleep 2; }
+if [ "${LLM_BACKEND:-none}" = "ollama" ] && command -v ollama >/dev/null; then
+    pgrep -x ollama >/dev/null || { ollama serve &>/dev/null & sleep 2; }
+fi
 
 [ -f api.pid ] && kill "$(cat api.pid)" 2>/dev/null
 HERE="$(pwd -P)"
@@ -229,8 +230,9 @@ case "$1" in
     stop)     "$DB_HOME/stop.sh" ;;
     worker)   shift; cd "$DB_HOME" && exec ./api worker "$@" ;;
     config)   shift; cd "$DB_HOME" && exec ./api config "$@" ;;
+    engine)   shift; cd "$DB_HOME" && exec ./api engine "$@" ;;
     version)  cd "$DB_HOME" && exec ./api --version ;;
-    *)        echo "Usage: db {start|stop|worker [--pool NAME]|config list [--all]|version}"; exit 1 ;;
+    *)        echo "Usage: db {start|stop|worker [--pool NAME]|config list [--all]|engine {install|remove|status}|version}"; exit 1 ;;
 esac
 EOF
 chmod +x "$INSTALL_DIR/db"
