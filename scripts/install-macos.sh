@@ -97,6 +97,28 @@ if ! command -v uv &>/dev/null; then
         || echo "[WARN] uv install 失敗。後で: curl -LsSf https://astral.sh/uv/install.sh | sh"
 fi
 
+# 26.11.262 より前の本体には api postgres が無い (PostgreSQL を同梱しない)。--version で前の本体を入れる時は前と同じく OS の PostgreSQL を使う
+if (cd "$INSTALL_DIR" && ./api postgres --help) >/dev/null 2>&1; then
+# DB: 同梱の PostgreSQL (本体のフォルダの postgres)。新しく入れる時と、.env がそれを指している時に用意し、使う DATABASE_URL を出す。
+# .env が外の PostgreSQL を指していれば何もしない (空を返す)。名前は DB_USER・DB_PASS・DB_NAME で変えられる (既定 digitalbase)
+echo "Setting up database..."
+if ! DB_URL=$(cd "$INSTALL_DIR" && ./api postgres setup); then
+    log "[ERROR] Could not set up the bundled PostgreSQL (see the messages above). Run this installer again"
+    exit 1
+fi
+
+# .env はこの機の識別 (推論エンジン・DB・署名鍵) だけ。置き場所は既定 (~/.local/db) と違う時だけ書く
+if [ ! -f "$INSTALL_DIR/.env" ]; then
+    cat > "$INSTALL_DIR/.env" << EOF
+LLM_BACKEND=none
+DATABASE_URL=${DB_URL}
+JWT_SECRET=$(openssl rand -hex 32)
+EOF
+    if [ "$(cd "$INSTALL_DIR" && pwd -P)" != "$(cd "$HOME/.local" 2>/dev/null && pwd -P)/db" ]; then
+        printf 'LICENSE_FILE_PATH=%s\nFILES_DIR=%s\n' "$INSTALL_DIR/license.lic" "$INSTALL_DIR/files" >> "$INSTALL_DIR/.env"
+    fi
+fi
+else
 DB_USER="${DB_USER:-digitalbase}"
 DB_PASS="${DB_PASS:-digitalbase}"
 DB_NAME="${DB_NAME:-digitalbase}"
@@ -157,6 +179,7 @@ if ! pg_admin -d "$DB_NAME" -c "CREATE EXTENSION IF NOT EXISTS vector;" >/dev/nu
     echo "   brew install pgvector   (Postgres.app は同梱のことが多い)"
 fi
 echo "[OK] Database setup complete (schemas and tables are created automatically on first startup)"
+fi
 
 cat > "$INSTALL_DIR/start.sh" << 'EOF'
 #!/bin/bash
@@ -164,7 +187,6 @@ cd "$(dirname "$0")"
 set -a; [ -f .env ] && source .env; set +a
 
 # Check dependencies
-pg_isready -q 2>/dev/null || { echo "[ERROR] PostgreSQL not running"; exit 1; }
 if [ "${LLM_BACKEND:-none}" = "ollama" ] && command -v ollama >/dev/null; then
     pgrep -x ollama >/dev/null || { ollama serve &>/dev/null & sleep 2; }
 fi

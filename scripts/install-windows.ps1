@@ -1,5 +1,5 @@
 
-# DigitalBase installer for Windows (run as a normal user; PostgreSQL and pgvector come first from setup-windows.ps1)
+# DigitalBase installer for Windows (run as a normal user; the bundled PostgreSQL goes into the install folder)
 #   irm https://pub-a2cab4360f1748cab5ae1c0f12cddc0a.r2.dev/vite-scripts/install-windows.ps1 | iex
 # Downloads the binary and hands over to `api.exe setup` (the same installer as Linux: database, .env, db command, start at logon)
 $ErrorActionPreference = "Stop"
